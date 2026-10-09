@@ -1,0 +1,14 @@
+[Unit]
+Description=Invoice permits server
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/invoice-server
+Environment=PORT=3000
+Environment=DATA_DIR=/var/lib/invoice-data
+ExecStart=/usr/bin/node server.js
+Restart=always
+User=invoice
+
+[Install]
+WantedBy=multi-user.target

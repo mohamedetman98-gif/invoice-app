@@ -1,0 +1,10 @@
+{
+  "name": "invoice-permits-server",
+  "version": "1.0.0",
+  "description": "نظام إدارة أذون الفواتير — خادم متعدد المستخدمين مع تحديث لحظي (فكرة وتنفيذ: محمد صبري)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=22.5" },
+  "license": "UNLICENSED",
+  "private": true
+}
