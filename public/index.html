@@ -149,6 +149,24 @@ button{cursor:pointer}button.p{background:var(--pri);color:#fff;border-color:var
 .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:7px 18px;border-radius:10px;z-index:99;box-shadow:var(--sh);font-weight:700}
 @media (max-width:900px){#dres,.opsw #main.two,.opsw #main.bk,.opsw #main.imp{grid-template-columns:1fr}#dres>.card:nth-child(3){grid-column:auto}.imp .c-cols,.imp .c-rules,.imp .c-repl{grid-column:1;grid-row:auto}}
 .opsw.fit{height:100vh;overflow:auto}.opsw #main>.card:not(.grow){flex:none}
+.cb-list{max-height:260px;overflow-y:auto;overflow-x:hidden}.cb-box{margin-inline-end:6px}.cb-clear{color:var(--bad);font-size:.85em}
+.multi{display:flex;flex-wrap:wrap;gap:4px;align-items:center;border:1px solid var(--bd);border-radius:8px;padding:3px 6px;background:var(--card);min-height:34px;width:100%}
+.multi .cb-in{border:0!important;flex:1;min-width:90px;padding:3px!important;background:transparent!important;outline:0}
+.mchip{background:var(--soft);border-radius:999px;padding:1px 9px;font-size:.85em;cursor:pointer;white-space:nowrap}.mchip b{color:var(--bad);margin-inline-start:3px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90}.mbox{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;min-width:320px;max-width:92vw;box-shadow:var(--sh)}
+.ov{font-size:clamp(11px,min(2vh,1.05vw),17px)}
+.sbox{padding:.35em .5em .35em .9em}.sbox label{font-size:.85em}.sbox input{font-size:1.25em;padding:.4em .3em}.sbox button{padding:.5em 1.1em;font-size:1.05em}
+.ov-nav button{padding:.55em 1.1em;font-size:1.05em}.ov-pos{font-size:1.15em}
+.hero{grid-template-columns:auto 1fr auto auto;gap:.5em 1.4em;padding:.7em 1.2em}
+.hero-id{font-size:1.7em;font-weight:800;line-height:1.1}.hero-date{display:inline-block;font-size:1.05em;font-weight:700;background:rgba(255,255,255,.22);padding:.1em .75em;border-radius:999px;margin-top:.25em}
+.hero-mid{text-align:center;min-width:0}.hero-cust{font-size:1.75em;font-weight:800;line-height:1.2}.hero-code{display:inline-block;font-size:1.05em;font-weight:700;background:rgba(255,255,255,.22);padding:.1em .8em;border-radius:999px;margin-top:.25em}
+.hero-pills{grid-column:1/-1;margin-top:0}.pill{font-size:.95em}.hero-amt b{font-size:1.7em}.chip{font-size:1em}
+.tile span{font-size:.85em}.tile b{font-size:1.3em}
+.edit{gap:.55em}.seg button{font-size:1em;padding:.65em .3em}.seg.g4 button{font-size:.92em;padding:.7em .15em}
+.fl input,.fl textarea{font-size:1.05em;padding:.4em .6em}.fl{font-size:.82em}
+.fl.notes textarea{height:2.9em;min-height:0;resize:none;flex:none}
+.btnrow{display:grid;grid-template-columns:2fr 1fr;gap:.5em}.savebtn{padding:.6em;font-size:1.15em;width:100%}.alt{background:var(--soft)!important;color:var(--tx)!important;border:2px solid var(--bd)!important}
+@media (max-height:700px){.opsw{padding:4px 10px}.opsw .tabs{margin-bottom:4px}.tabs button{padding:3px 9px}.opsw #bn .card{padding:4px 10px;margin-bottom:4px}.foot{padding-top:0;font-size:10px}.opsw .row{margin-bottom:3px}}
 .opsw #main>.card.grow{min-height:160px}
 #prt{display:none}
 @media print{body.printing #app{display:none!important}body.printing #prt{display:block!important;direction:rtl;font-size:11px}#prt h2{font-size:15px;margin:0 0 6px}#prt h3{font-size:12px}#prt p{margin:3px 0}#prt,#prt *{color:#000!important;background:#fff!important}#prt table{border-collapse:collapse;width:100%}#prt th,#prt td{border:1px solid #000;padding:2px 5px;font-size:10.5px;text-align:right;white-space:normal}#prt tr{page-break-inside:avoid}.pfoot{position:fixed;left:0;bottom:0;text-align:left;direction:rtl;font-size:11px;line-height:1.5}.sign{margin-top:16px;page-break-inside:avoid}.sig{display:flex;justify-content:space-between;margin-top:22px;font-size:12px}#prt{padding-bottom:14mm}}
@@ -178,7 +196,8 @@ function sessionLost(){user=null;if(es){es.close();es=null}wasConn=false;setConn
 let users=[],invs=[],WH=[],DR=[],invIdx=new Map();
 function reindex(){invIdx=new Map(invs.map((v,i)=>[String(v.Invoice_ID),i]))}
 function applyInvs(items){for(const it of items){const k=String(it.Invoice_ID),i=invIdx.get(k);if(i===undefined){invIdx.set(k,invs.length);invs.push(it)}else invs[i]=it}dataVer++}
-async function loadState(){const j=await api("/api/state");user=j.me;invs=j.invs;reindex();dataVer++;WH=j.WH||[];DR=j.DR||[];buildMaps();users=j.users||[];hdrInfo()}
+async function savePM(l){await api("/api/paymethods",{PM:l},"PUT");PM=l}
+async function loadState(){const j=await api("/api/state");user=j.me;invs=j.invs;reindex();dataVer++;WH=j.WH||[];DR=j.DR||[];PM=j.PM||PM;buildMaps();users=j.users||[];hdrInfo()}
 let rq=0;function onRemote(){if(rq)return;rq=setTimeout(()=>{rq=0;if(!user)return;banner();hdrInfo();
 if(tab==="dash"){if(document.querySelector("#main .combo input:focus"))dashRender();else dashView()}else if(tab==="ops"&&!O.dirty){refreshOps();form()}else if(tab==="drv"&&!document.querySelector("#dtab tr.dirty"))drvTable()},120)}
 function connectEvents(){if(es)es.close();es=new EventSource("/api/events");
@@ -186,6 +205,7 @@ es.addEventListener("hello",()=>{const re=wasConn;wasConn=true;setConn(true);if(
 es.addEventListener("invs",e=>{applyInvs(JSON.parse(e.data).items);onRemote()});
 es.addEventListener("reload",e=>{if(JSON.parse(e.data).src===CID)return;loadState().then(onRemote).catch(()=>{})});
 es.addEventListener("lookups",e=>{const d=JSON.parse(e.data);WH=d.WH;DR=d.DR;buildMaps();onRemote()});
+es.addEventListener("paymethods",e=>{PM=JSON.parse(e.data).PM;onRemote()});
 es.addEventListener("users",()=>{if(user&&user.role==="admin")api("/api/users").then(j=>{users=j.users;if(tab==="adm"&&!document.getElementById("pmsave"))admView()}).catch(()=>{})});
 es.addEventListener("me",()=>{api("/api/me").then(j=>{const o=JSON.stringify(user);user=j.me;if(JSON.stringify(user)!==o)shell()}).catch(()=>{})});
 es.onerror=()=>{setConn(false,"إعادة الاتصال...");api("/api/me").catch(e=>{if(e.status===401)sessionLost()})}}
@@ -199,6 +219,7 @@ return x==null?"":x}
 function cz(x){if(x==null)return"";const t=String(x).trim();return/^0+(\.0+)?$/.test(t)?"":t}
 function isoLocal(t){const d=new Date(t),q=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${q(d.getMonth()+1)}-${q(d.getDate())} ${q(d.getHours())}:${q(d.getMinutes())}`}
 function fdate(v){const x=parseDate(v),m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(x);return m?`${m[3]}/${m[2]}/${m[1]}`:String(x??"")}
+let PM=["نقدي","بساطة","فوري"];
 let WM,DM;const kk=x=>String(x||"").trim().toLowerCase();
 function buildMaps(){lkVer++;WM=new Map(WH.map(x=>[kk(x.code),x]));DM=new Map(DR.map(x=>[kk(x.name),x]))}buildMaps();
 /* اسم المخزن يُحسب من كود المخزن، وموقع السائق يُحسب من اسم السائق فقط */
@@ -221,9 +242,9 @@ function shell(){const okTab={imp:can("import")||can("export")||can("replace"),l
 if(["imp","lk","bk","adm"].includes(tab)&&!okTab[tab])tab="ops";const t=[["ops","البحث والتحديث"],["dash","التقارير"],["drv","متابعة السائقين"]];
 if(okTab.imp)t.push(["imp","استيراد ERP"]);if(okTab.lk)t.push(["lk","جداول المخازن والسائقين"]);if(okTab.bk)t.push(["bk","النسخ الاحتياطي"]);if(okTab.adm)t.push(["adm","لوحة المدير"]);
 app.className="wrap opsw fit";
-app.innerHTML=`<div class="row"><b>إدارة أذون الفواتير</b><span class="note">${esc(user.u)} (${RN[user.role]})</span><span class="note" id="sbd"></span><button id="pwb" style="margin-inline-start:auto">تغيير كلمة المرور</button><button id="lo">خروج</button></div>
+app.innerHTML=`<div class="row"><b>إدارة أذون الفواتير</b><span class="note">${esc(user.u)} (${RN[user.role]})</span><span class="note" id="sbd"></span><button id="snd" title="تشغيل/إيقاف التنبيه الصوتي" style="margin-inline-start:auto">${SND?"🔔":"🔕"}</button><button id="pwb">تغيير كلمة المرور</button><button id="lo">خروج</button></div>
 <div class="tabs">${t.map(([k,n])=>`<button data-t="${k}" class="${k===tab?"on":""}">${n}</button>`).join("")}</div><div id="bn"></div><div id="main"></div>${foot()}`;
-lo.onclick=async()=>{try{await api("/api/logout",{})}catch(e){}if(es){es.close();es=null}wasConn=false;user=null;setConn(false);loginView()};pwb.onclick=()=>pwView(false);
+lo.onclick=async()=>{try{await api("/api/logout",{})}catch(e){}if(es){es.close();es=null}wasConn=false;user=null;setConn(false);loginView()};pwb.onclick=()=>pwView(false);snd.onclick=()=>{SND=!SND;try{localStorage.setItem("snd",SND?"1":"0")}catch(e){}snd.textContent=SND?"🔔":"🔕";if(SND)beep("ok")};
 document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{if(b.dataset.t===tab)return;if(!O.dirty||confirm("تجاهل التعديلات غير المحفوظة؟")){O.dirty=false;showTab(b.dataset.t)}});showTab(tab)}
 function showTab(t){tab=t;document.querySelectorAll("[data-t]").forEach(b=>b.classList.toggle("on",b.dataset.t===t));const m=document.getElementById("main");m.className="";m.innerHTML="";
 ({ops:opsView,dash:dashView,drv:drvView,imp:impView,lk:lkView,bk:bkView,adm:admView})[t]();if(t==="lk")m.classList.add("two");if(t==="imp")m.classList.add("imp");if(t==="bk")m.classList.add("bk");banner()}
@@ -234,18 +255,32 @@ b.innerHTML=`<div class="card" style="border-color:var(--bad)"><b class="bad">�
 document.getElementById("gl").onclick=()=>{if(!O.dirty||confirm("تجاهل التعديلات غير المحفوظة؟")){O.dirty=false;showTab("lk")}}}
 /* ---- العمليات ---- */
 function combo(host,o){host.classList.add("combo");host.innerHTML=`<input class="cb-in" autocomplete="off" placeholder="${esc(o.ph||"اكتب للبحث أو اختر")}"><span class="cb-x" hidden>✕</span><div class="cb-list" hidden></div>`;
-const inp=host.querySelector("input"),lst=host.querySelector(".cb-list"),x=host.querySelector(".cb-x");let items=[],hl=-1;const MAX=o.max||10;
+const inp=host.querySelector("input"),lst=host.querySelector(".cb-list"),x=host.querySelector(".cb-x");let items=[],hl=-1;const MAX=400;
 const lab=v=>{if(v===""||v==null)return"";const it=o.items().find(i=>i.v===v);return it?it.t:String(v)};
 const refresh=()=>{inp.value=lab(o.val());x.hidden=!o.val()};
 const render=()=>{const t=kk(inp.value),cur=lab(o.val()),all=o.items(),typed=t&&inp.value!==cur,f=typed?all.filter(i=>kk(i.t).includes(t)):all;
-items=[...(o.all&&!typed?[{v:"",t:o.all}]:[]),...f.slice(0,MAX)];hl=items.length?0:-1;
-lst.innerHTML=items.map((i,k)=>`<div class="cb-it ${k===hl?"hl":""}" data-k="${k}">${esc(i.t)}</div>`).join("")+(f.length>MAX?`<div class="cb-more">و ${f.length-MAX} نتيجة أخرى — أكمل الكتابة للتصفية</div>`:"")+(typed&&!f.length?'<div class="cb-more">لا توجد نتائج</div>':"");lst.hidden=false};
+items=[...(o.all&&!typed?[{v:"",t:o.all}]:[]),...f.slice(0,MAX)];hl=items.length?(o.all&&!typed&&items.length>1&&o.val()?1:0):-1;
+lst.innerHTML=items.map((i,k)=>`<div class="cb-it ${k===hl?"hl":""}" data-k="${k}">${esc(i.t)}</div>`).join("")+(f.length>MAX?`<div class="cb-more">يعرض أول ${MAX} نتيجة — أكمل الكتابة للتصفية</div>`:"")+(typed&&!f.length?'<div class="cb-more">لا توجد نتائج</div>':"");lst.hidden=false};
 const pick=k=>{const it=items[k];if(!it)return;o.pick(it.v);refresh();lst.hidden=true;inp.blur()};
 inp.onfocus=()=>{inp.select();render()};inp.oninput=render;
-inp.onkeydown=e=>{if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();if(!items.length)return;hl=(hl+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;lst.querySelectorAll(".cb-it").forEach((d,k)=>d.classList.toggle("hl",k===hl))}else if(e.key==="Enter"){e.preventDefault();pick(hl)}else if(e.key==="Escape"){lst.hidden=true;refresh();inp.blur()}};
+inp.onkeydown=e=>{if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();if(!items.length)return;hl=(hl+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;lst.querySelectorAll(".cb-it").forEach((d,k)=>{d.classList.toggle("hl",k===hl);if(k===hl)d.scrollIntoView({block:"nearest"})})}else if(e.key==="Enter"){e.preventDefault();pick(hl)}else if(e.key==="Escape"){lst.hidden=true;refresh();inp.blur()}};
 inp.onblur=()=>setTimeout(()=>{lst.hidden=true;refresh()},130);
 lst.onmousedown=e=>{const d=e.target.closest(".cb-it");if(d){e.preventDefault();pick(+d.dataset.k)}};
 x.onmousedown=e=>{e.preventDefault();o.pick("");refresh()};host.refresh=refresh;refresh();return host}
+function multi(host,o){host.classList.add("combo","multi");host.innerHTML=`<div class="mchips" style="display:contents"></div><input class="cb-in" autocomplete="off" placeholder="${esc(o.ph||"اكتب للبحث أو اختر (متعدد)")}"><div class="cb-list" hidden></div>`;
+const inp=host.querySelector("input"),lst=host.querySelector(".cb-list"),chs=host.querySelector(".mchips");let items=[],hl=-1;
+const sel=()=>o.get();
+const chipsR=()=>{chs.innerHTML=sel().map((v,i)=>`<span class="mchip" data-i="${i}">${esc(v)} <b>✕</b></span>`).join("")};
+const render=()=>{const t=kk(inp.value),all=o.items(),cur=new Set(sel()),f=t?all.filter(i=>kk(i.t).includes(t)):all;items=f.slice(0,400);hl=items.length?0:-1;
+lst.innerHTML=(sel().length?'<div class="cb-it cb-clear" data-k="-1">✕ مسح كل الاختيارات</div>':"")+items.map((i,k)=>`<div class="cb-it ${k===hl?"hl":""}" data-k="${k}"><span class="cb-box">${cur.has(i.v)?"☑":"☐"}</span>${esc(i.t)}</div>`).join("")+(!items.length?'<div class="cb-more">لا توجد نتائج</div>':"");lst.hidden=false};
+const toggle=k=>{if(k===-1)o.set([]);else{const it=items[k];if(!it)return;const a=sel().slice(),i=a.indexOf(it.v);if(i>=0)a.splice(i,1);else a.push(it.v);o.set(a)}chipsR();render();inp.focus()};
+inp.onfocus=render;inp.oninput=render;
+inp.onkeydown=e=>{if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();if(!items.length)return;hl=(hl+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;lst.querySelectorAll(".cb-it:not(.cb-clear)").forEach((d,k)=>{d.classList.toggle("hl",k===hl);if(k===hl)d.scrollIntoView({block:"nearest"})})}
+else if(e.key==="Enter"){e.preventDefault();if(hl>=0)toggle(hl)}else if(e.key==="Escape"){lst.hidden=true;inp.blur()}else if(e.key==="Backspace"&&!inp.value&&sel().length){o.set(sel().slice(0,-1));chipsR();render()}};
+inp.onblur=()=>setTimeout(()=>{lst.hidden=true},130);
+lst.onmousedown=e=>{const d=e.target.closest(".cb-it");if(d){e.preventDefault();toggle(+d.dataset.k)}};
+chs.onmousedown=e=>{const c=e.target.closest(".mchip");if(c){e.preventDefault();const a=sel().slice();a.splice(+c.dataset.i,1);o.set(a);chipsR()}};
+chipsR();return host}
 function toast(t){const e=document.createElement("div");e.className="toast";e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),3500)}
 const nat=(x,y)=>collEn.compare(String(x),String(y));
 let _sc={v:-1,n:-1,a:null};
@@ -262,8 +297,14 @@ function refreshOps(){const cur=O.ids[O.i];
 if(O.mode==="inv"){if(cur!==undefined&&invs.some(v=>String(v.Invoice_ID)===cur)){O.ids=sortedIds(invs);O.i=O.ids.indexOf(cur)}else searchInvoice()}
 else if(O.mode==="po"){searchPO();const i=O.ids.indexOf(cur);if(i>=0)O.i=i}}
 const STC={"Not Received":"amber","Received":"green","Returned":"red","Partial":"blue"},PSC={Unpaid:"red",Paid:"green"};
-function setStatus(inv,st,now){if(inv.Status!==st){if(st==="Received")inv.Received_At=now;else if(inv.Status==="Received")inv.Received_At=0;inv.Status=st}}
-const recAt=v=>v.Received_At||(v.Status==="Received"?v.ts||0:0);
+function setStatus(inv,st,now){if(inv.Status!==st){if(st!=="Not Received"){if(inv.Status==="Not Received")inv.Received_At=now}else inv.Received_At=0;inv.Status=st}}
+const recAt=v=>v.Received_At||(v.Status!=="Not Received"?v.ts||0:0);
+/* التراجع عن آخر تعديل (على الخادم) */
+async function doUndo(){if(!can("edit"))return;try{const j=await api("/api/undo",{});applyInvs(j.updated);beep("ok");toast("↩ تم التراجع عن آخر تعديل");if(tab==="ops"){refreshOps();form()}else if(tab==="drv")drvTable();banner()}catch(e){beep("err");alert(e.message)}}
+/* التنبيه الصوتي */
+let _ac=null,SND=true;try{SND=localStorage.getItem("snd")!=="0"}catch(e){}
+function beep(k){if(!SND)return;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==="suspended")_ac.resume();const seq=k==="ok"?[[880,.09],[1175,.13]]:[[330,.16],[240,.24]];let t=_ac.currentTime;
+for(const[f,d]of seq){const o=_ac.createOscillator(),g=_ac.createGain();o.type=k==="ok"?"sine":"square";o.frequency.value=f;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(k==="ok"?.2:.1,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(_ac.destination);o.start(t);o.stop(t+d+.02);t+=d+.03}}catch(e){}}
 function showLast(){let b=null;for(const v of invs)if(v.ts&&(!b||v.ts>b.ts))b=v;let a="last";if(!b){b=invs.length?invs.slice().sort((x,y)=>nat(x.Invoice_ID,y.Invoice_ID))[0]:null;a="first"}
 if(!b)return;O.mode="inv";O.auto=a;O.msg="";O.ids=sortedIds(invs);O.i=O.ids.indexOf(String(b.Invoice_ID))}
 const fts=t=>{if(!t)return"";const d=new Date(t),q=n=>String(n).padStart(2,"0");return`${q(d.getDate())}/${q(d.getMonth()+1)}/${d.getFullYear()} ${q(d.getHours())}:${q(d.getMinutes())}`};
@@ -272,126 +313,165 @@ function opsView(){if(!O.qi.trim()&&!O.qp.trim())showLast();refreshOps();main.in
 <div class="sbox"><label for="qp">رقم PO أو المرتجع</label><input id="qp" placeholder="رقم PO / رقم المرتجع" value="${esc(O.qp)}"><button class="p" id="sbp">بحث</button></div>
 <div class="ov-nav"><button id="bk">&lt;&lt; Back</button><span class="ov-pos" id="pos" dir="ltr"></span><button id="nx">Next &gt;&gt;</button></div></div><div class="rec" id="fm"></div></div>`;
 const chk=()=>!O.dirty||confirm("تجاهل التعديلات غير المحفوظة؟");
-sbi.onclick=()=>{if(chk()){O.qi=qi.value;O.dirty=false;searchInvoice();form()}};qi.onkeydown=e=>{if(e.key==="Enter")sbi.onclick()};
-sbp.onclick=()=>{if(chk()){O.qp=qp.value;O.dirty=false;searchPO();form()}};qp.onkeydown=e=>{if(e.key==="Enter")sbp.onclick()};
+sbi.onclick=()=>{if(chk()){O.qi=qi.value;O.dirty=false;searchInvoice();if(O.msg==="لا يوجد بيانات")beep("err");form()}};qi.onkeydown=e=>{if(e.key==="Enter")sbi.onclick()};
+sbp.onclick=()=>{if(chk()){O.qp=qp.value;O.dirty=false;searchPO();if(O.msg==="لا يوجد بيانات")beep("err");form()}};qp.onkeydown=e=>{if(e.key==="Enter")sbp.onclick()};
 bk.onclick=()=>{if(O.i>0&&chk()){O.i--;O.auto="";O.dirty=false;form()}};nx.onclick=()=>{if(O.i<O.ids.length-1&&chk()){O.i++;O.auto="";O.dirty=false;form()}};form();if(!O.ids.length&&!O.msg.includes("لا يوجد"))qi.focus()}
 function form(){const v=O.i>=0?invs.find(x=>String(x.Invoice_ID)===O.ids[O.i]):null,ce=can("edit");pos.textContent=`${O.ids.length?O.i+1:0} / ${O.ids.length}`;bk.disabled=O.i<=0;nx.disabled=O.i<0||O.i>=O.ids.length-1;
 if(!v){const nf=O.msg==="لا يوجد بيانات";fm.innerHTML=`<div class="pan" style="flex:1;align-items:center;justify-content:center;text-align:center;gap:6px"><div style="font-size:3em">${nf?"🔎":"🧾"}</div><b style="font-size:1.6em" class="${nf?"bad":""}">${esc(O.msg||(invs.length?"ابحث برقم الفاتورة أو برقم PO / المرتجع":"لا توجد فواتير بعد"))}</b><span class="note">${nf?"تأكد من كتابة الرقم كاملاً كما هو في الفاتورة":invs.length?"رقم الفاتورة يُكتب كاملاً":"استورد فواتير من تبويب «استيراد ERP»"}</span></div>`;return}
-const e=enr(v),st=v.Status||"Not Received",pd=v.Paid_Status||"Unpaid",amt=(Number(v.Amount)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const e=enr(v),st=v.Status||"Not Received",pd=v.Paid_Status||"Unpaid",pmv=v.Pay_Method||"",amt=(Number(v.Amount)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const T=(l,x,c="")=>`<div class="tile ${c}"><span>${l}</span><b>${esc(x||"—")}</b></div>`;
 const autoTxt=O.auto==="last"?"⏱ آخر فاتورة تم التعديل عليها":O.auto==="first"?"أول فاتورة (لم يتم تعديل أي فاتورة بعد)":"";
-fm.innerHTML=`<div class="ovbody"><div class="ovdata"><div class="hero"><div class="hero-main">${autoTxt?`<div class="autonote">${autoTxt}</div>`:""}<div class="hero-id">${esc(v.Invoice_ID)}<span class="hero-date">${esc(fdate(v.Invoice_Date)||"—")}</span></div><div class="hero-cust">${esc(v.Customer_Name||"—")} <small>(${esc(v.Customer_Code||"—")})</small></div>
+const pml=[...PM];if(pmv&&!pml.includes(pmv))pml.push(pmv);
+fm.innerHTML=`<div class="ovbody"><div class="ovdata"><div class="hero"><div class="hero-idbox">${autoTxt?`<div class="autonote">${autoTxt}</div>`:""}<div class="hero-id">${esc(v.Invoice_ID)}</div><div class="hero-date">📅 ${esc(fdate(v.Invoice_Date)||"—")}</div></div>
+<div class="hero-mid"><div class="hero-cust">${esc(v.Customer_Name||"—")}</div><div class="hero-code">كود العميل: ${esc(v.Customer_Code||"—")}</div></div>
+<div class="hero-amt"><span>القيمة</span><b>${amt}</b></div><div class="hero-chips"><span id="chs" class="chip ${STC[st]||"gray"}">${esc(SA[st]||st)}</span><span id="chp" class="chip ${PSC[pd]||"gray"}">${esc(PS[pd]||pd)}${pmv?" • "+esc(pmv):""}</span></div>
 <div class="hero-pills"><span class="pill">🚚 السائق: <b>${esc(v.Driver_Name||"—")}</b></span><span class="pill">📍 الموقع: <b>${esc(e.dl||"—")}</b></span><span class="pill">🏬 المخزن: <b>${esc(e.wm?e.wn:(v.Warehouse||"—")+" (غير مضاف)")}</b></span></div></div>
-<div class="hero-amt"><span>القيمة</span><b>${amt}</b></div><div class="hero-chips"><span id="chs" class="chip ${STC[st]||"gray"}">${esc(SA[st]||st)}</span><span id="chp" class="chip ${PSC[pd]||"gray"}">${esc(PS[pd]||pd)}</span></div></div>
 <section class="pan" style="flex:1"><div class="facts">${T("العنوان",v.Address,"w2")}${T("أمر البيع",v.Sales_Order)}${T("نوع المعاملة",v.Transaction_Type)}${T("التصنيف",v.Category1)}${T("فئة العميل",v.Customer_Category)}${T("شروط الدفع",v.Payment_Term)}${T("رقم التسجيل",v.Registration)}</div></section></div>
 <section class="pan edit"><h4>✏️ المتابعة والتحديث</h4>
 <div class="fl">حالة الاستلام<input type="hidden" id="f_s" value="${esc(st)}"><div class="seg g4">${ST.map(x=>`<button type="button" class="${STC[x]} ${x===st?"on":""}" data-seg="f_s" data-v="${x}" ${ce?"":"disabled"}>${SA[x]}</button>`).join("")}</div></div>
 <div class="fl">حالة الدفع<input type="hidden" id="f_ps" value="${esc(pd)}"><div class="seg g2">${Object.keys(PS).map(x=>`<button type="button" class="${PSC[x]} ${x===pd?"on":""}" data-seg="f_ps" data-v="${x}" ${ce?"":"disabled"}>${PS[x]}</button>`).join("")}</div></div>
+<div class="fl">طريقة السداد (إن وجدت)<input type="hidden" id="f_pm" value="${esc(pmv)}"><div class="seg">${pml.map(x=>`<button type="button" class="blue ${x===pmv?"on":""}" data-mth="${esc(x)}" ${ce?"":"disabled"}>${esc(x)}</button>`).join("")||'<span class="note">لا توجد طرق سداد (يضيفها المدير من شاشة التقارير)</span>'}</div></div>
 <div class="two"><label class="fl">رقم PO العميل<input id="f_p" placeholder="لا يوجد" value="${esc(cz(v.PO_Number))}" ${ce?"":"disabled"}></label><label class="fl">رقم المرتجع<input id="f_r" placeholder="لا يوجد" value="${esc(cz(v.Return_Number))}" ${ce?"":"disabled"}></label></div>
-<label class="fl grow">ملاحظات<textarea id="f_n" placeholder="اكتب ملاحظاتك هنا" ${ce?"":"disabled"}>${esc(v.Notes)}</textarea></label>
+<label class="fl notes">ملاحظات<textarea id="f_n" placeholder="ملاحظات" ${ce?"":"disabled"}>${esc(v.Notes)}</textarea></label>
 <div class="audit"><span>أول من عدّل: <b>${esc(v.First_Editor||"-")}</b>${v.First_Editor?` <small class="ts" dir="ltr">${esc(fts(v.First_At)||"وقت غير مسجّل")}</small>`:""}</span><span>آخر من عدّل: <b>${esc(v.User_Name||"-")}</b>${v.User_Name?` <small class="ts" dir="ltr">${esc(fts(v.ts)||"وقت غير مسجّل")}</small>`:""}</span></div>
-<button class="p savebtn" id="sv" ${ce?"":"disabled"}>حفظ</button><div id="mg" class="note" style="text-align:center;min-height:16px">${ce?"":"وضع القراءة فقط"}</div></section></div>`;
+<div class="btnrow"><button class="p savebtn" id="sv" ${ce?"":"disabled"}>💾 حفظ</button><button class="savebtn alt" id="undo" ${ce?"":"disabled"} title="إلغاء آخر حركة تعديل">↩ تراجع</button></div><div id="mg" class="note" style="text-align:center;min-height:1.2em">${ce?"":"وضع القراءة فقط"}</div></section></div>`;
 O.dirty=false;
-const chips=()=>{const s=f_s.value,p=f_ps.value;chs.textContent=SA[s]||s;chs.className="chip "+(STC[s]||"gray");chp.textContent=PS[p]||p;chp.className="chip "+(PSC[p]||"gray")};
+const chips=()=>{const s=f_s.value,p=f_ps.value,m=f_pm.value;chs.textContent=SA[s]||s;chs.className="chip "+(STC[s]||"gray");chp.textContent=(PS[p]||p)+(m?" • "+m:"");chp.className="chip "+(PSC[p]||"gray")};
 document.querySelectorAll("[data-seg]").forEach(b=>b.onclick=()=>{if(!ce)return;const id=b.dataset.seg;document.getElementById(id).value=b.dataset.v;document.querySelectorAll(`[data-seg="${id}"]`).forEach(x=>x.classList.toggle("on",x===b));chips();O.dirty=true});
+document.querySelectorAll("[data-mth]").forEach(b=>b.onclick=()=>{if(!ce)return;const cur=f_pm.value,nv=cur===b.dataset.mth?"":b.dataset.mth;f_pm.value=nv;document.querySelectorAll("[data-mth]").forEach(x=>x.classList.toggle("on",nv!==""&&x.dataset.mth===nv));chips();O.dirty=true});
 ["f_p","f_r","f_n"].forEach(id=>document.getElementById(id).oninput=()=>O.dirty=true);const ts0=v.ts;
+document.getElementById("undo").onclick=doUndo;
 document.getElementById("sv").onclick=async()=>{if(!can("edit"))return;const b0=document.getElementById("sv");
-const body={items:[{id:v.Invoice_ID,fields:{Status:f_s.value,Paid_Status:f_ps.value,PO_Number:cz(f_p.value),Return_Number:cz(f_r.value),Notes:f_n.value.trim()},expectedTs:ts0||0}]};b0.disabled=true;
+const body={items:[{id:v.Invoice_ID,fields:{Status:f_s.value,Paid_Status:f_ps.value,Pay_Method:f_pm.value,PO_Number:cz(f_p.value),Return_Number:cz(f_r.value),Notes:f_n.value.trim()},expectedTs:ts0||0}]};b0.disabled=true;
 try{let j=await api("/api/invoices/edit",body);if(j.conflicts&&j.conflicts.length){if(!confirm("عدّل مستخدم آخر هذه الفاتورة للتو. الكتابة فوق تعديله؟")){applyInvs([j.conflicts[0].current]);form();return}delete body.items[0].expectedTs;j=await api("/api/invoices/edit",body)}
-applyInvs(j.updated);O.auto="";form();mg.textContent="تم الحفظ ✔";mg.className="ok"}catch(e){b0.disabled=false;alert(e.message)}}}
+applyInvs(j.updated);O.auto="";beep("ok");form();mg.textContent="تم الحفظ ✔";mg.className="ok"}catch(e){b0.disabled=false;beep("err");alert(e.message)}}}
 /* ---- اللوحة ---- */
 const SL={"Not Received":"لم يُستلم (Not Received)","Received":"تم الاستلام (Received)","Returned":"مرتجع بالكامل (Returned)","Partial":"استلام جزئي (Partial)"};
-const MASTER=[...ERP,"Status","Paid_Status","Notes","Return_Number","PO_Number","First_Editor","First_Edit_At","User_Name","Last_Edit_At","Received_At"];
-let D={drv:"",st:"Not Received",cus:"",wh:"",loc:""};
-function xl(rows,name){try{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Report");XLSX.writeFile(wb,name)}catch(e){alert("تعذّر التصدير: "+e.message)}}
-function dashFiltered(noSt){return invs.filter(v=>{const e=enr(v);return(!D.drv||v.Driver_Name===D.drv)&&(noSt||!D.st||v.Status===D.st)&&(!D.cus||v.Customer_Name===D.cus)&&(!D.wh||e.wn===D.wh)&&(!D.loc||e.dl===D.loc)})}
+const MASTER=[...ERP,"Status","Paid_Status","Pay_Method","Notes","Return_Number","PO_Number","First_Editor","First_Edit_At","User_Name","Last_Edit_At","Received_At"];
+let D={drv:"",st:"Not Received",cus:[],wh:[],loc:[],from:"",to:"",ex:""},_lastSig="";
+function xl(rows,name){if(!rows.length){beep("err");alert("لا توجد بيانات للتصدير");return}try{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Report");XLSX.writeFile(wb,name)}catch(e){alert("تعذّر التصدير: "+e.message)}}
+function dashFiltered(noSt,noDrv){const C=new Set(D.cus),W=new Set(D.wh),Lc=new Set(D.loc);
+return invs.filter(v=>{const e=enr(v);if(!noDrv&&D.drv&&v.Driver_Name!==D.drv)return false;if(!noSt&&D.st&&v.Status!==D.st)return false;if(C.size&&!C.has(v.Customer_Name))return false;if(W.size&&!W.has(e.wn))return false;if(Lc.size&&!Lc.has(e.dl))return false;
+if(D.from||D.to){const d=parseDate(v.Invoice_Date);if(!d||(D.from&&d<D.from)||(D.to&&d>D.to))return false}return true})}
 const uniq=a=>[...new Set(a.filter(x=>x!==""&&x!=null))].sort((x,y)=>collAr.compare(String(x),String(y)));
 let _dl={v:-1,l:-1,r:null};
 function dashLists(){if(_dl.v===dataVer&&_dl.l===lkVer)return _dl.r;const r={drv:uniq(invs.map(v=>v.Driver_Name)),cus:uniq(invs.map(v=>v.Customer_Name)),wh:uniq(invs.map(v=>enr(v).wn)),loc:uniq(invs.map(v=>enr(v).dl))};_dl={v:dataVer,l:lkVer,r};return r}
-const opts=(sel,list)=>`<option value="">الكل</option>`+list.map(x=>`<option value="${esc(x)}" ${x===sel?"selected":""}>${esc(x)}</option>`).join("");
+const filtDesc=()=>[D.cus.length?"العميل: "+D.cus.join("، "):"",D.wh.length?"المخزن: "+D.wh.join("، "):"",D.loc.length?"موقع السائق: "+D.loc.join("، "):"",(D.from||D.to)?"الفترة: "+(D.from?fdate(D.from):"…")+" ← "+(D.to?fdate(D.to):"…"):""].filter(Boolean).join(" — ");
+const fmN=n=>(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 function dashView(){const Ls=dashLists();main.innerHTML=`<div class="card"><div class="grid">
 <label>اسم السائق<div id="d1"></div></label>
 <label>موقف إذن الاستلام<select id="d2"><option value="">الكل</option>${ST.map(x=>`<option value="${x}" ${x===D.st?"selected":""}>${SL[x]}</option>`).join("")}</select></label>
-<label>العميل<div id="d3"></div></label>
-<label>المخزن<select id="d4">${opts(D.wh,Ls.wh)}</select></label>
-<label>موقع السائق<select id="d5">${opts(D.loc,Ls.loc)}</select></label></div>
-<div class="row" style="margin-top:8px"><button class="p" id="e3" disabled>🖨 طباعة بيان السائق</button><button id="e5">🖨 طباعة موقف كل السائقين (غير المستلمة)</button><label class="note"><input type="checkbox" id="pgb"> كل سائق في صفحة مستقلة</label><span class="note" id="e3h">اختر اسم السائق أولاً لتفعيل الطباعة</span><button id="dc" style="margin-inline-start:auto">مسح الفلاتر (عرض الكل)</button></div></div><div id="dres"></div>`;
-const bind=(id,k)=>{document.getElementById(id).onchange=e=>{D[k]=e.target.value;dashRender()}};
-bind("d2","st");bind("d4","wh");bind("d5","loc");
+<label>العميل (اختيار متعدد)<div id="d3"></div></label>
+<label>المخزن (اختيار متعدد)<div id="d4"></div></label>
+<label>موقع السائق (اختيار متعدد)<div id="d5"></div></label>
+<label>من تاريخ الفاتورة<input type="date" id="dfrom" value="${esc(D.from)}"></label><label>إلى تاريخ الفاتورة<input type="date" id="dto" value="${esc(D.to)}"></label></div>
+<div class="row" style="margin-top:8px"><button class="p" id="e3" disabled>🖨 طباعة بيان السائق</button><button id="e5">🖨 طباعة موقف كل السائقين (غير المستلمة)</button><label class="note"><input type="checkbox" id="pgb"> كل سائق في صفحة مستقلة</label>
+<button class="p" id="e6" disabled>🖨 طباعة بيان العميل</button><button id="e7" disabled>⬇ تصدير بيان العميل (Excel)</button>${user.role==="admin"?'<button id="pmb">💳 إدارة طرق السداد</button>':""}<span class="note" id="e3h"></span><button id="dc" style="margin-inline-start:auto">مسح الفلاتر (عرض الكل)</button></div></div><div id="dres"></div>`;
 combo(d1,{ph:"اكتب اسم السائق أو اختر",all:"الكل (كل السائقين)",items:()=>Ls.drv.map(x=>({v:x,t:x})),val:()=>D.drv,pick:v=>{D.drv=v;dashRender()}});
-combo(d3,{ph:"اكتب اسم العميل أو اختر",all:"الكل (كل العملاء)",items:()=>Ls.cus.map(x=>({v:x,t:x})),val:()=>D.cus,pick:v=>{D.cus=v;dashRender()}});
-dc.onclick=()=>{D={drv:"",st:"",cus:"",wh:"",loc:""};dashView()};e3.onclick=()=>printDriver(dashFiltered(false));e5.onclick=()=>printAllDrivers(pgb.checked);dashRender()}
+multi(d3,{ph:"اكتب اسم العميل أو اختر",items:()=>Ls.cus.map(x=>({v:x,t:x})),get:()=>D.cus,set:a=>{D.cus=a;dashRender()}});
+multi(d4,{ph:"اكتب اسم المخزن أو اختر",items:()=>Ls.wh.map(x=>({v:x,t:x})),get:()=>D.wh,set:a=>{D.wh=a;dashRender()}});
+multi(d5,{ph:"اكتب الموقع أو اختر",items:()=>Ls.loc.map(x=>({v:x,t:x})),get:()=>D.loc,set:a=>{D.loc=a;dashRender()}});
+d2.onchange=e=>{D.st=e.target.value;dashRender()};dfrom.onchange=()=>{D.from=dfrom.value;dashRender()};dto.onchange=()=>{D.to=dto.value;dashRender()};
+dc.onclick=()=>{D={drv:"",st:"",cus:[],wh:[],loc:[],from:"",to:"",ex:""};_lastSig="";dashView()};
+e3.onclick=()=>printDriver(dashFiltered(false));e5.onclick=()=>printAllDrivers(pgb.checked);e6.onclick=printCustomer;e7.onclick=exportCustomer;if(document.getElementById("pmb"))pmb.onclick=payMgr;dashRender()}
 const SA={"Not Received":"لم يُستلم","Received":"تم الاستلام","Returned":"مرتجع بالكامل","Partial":"استلام جزئي"};
 function dashRender(){const fa=dashFiltered(true),g={};
-fa.forEach(v=>{const d=v.Driver_Name||"(بدون سائق)",x=g[d]=g[d]||{n:0,r:0,u:0};x.n++;if(v.Status==="Received")x.r++;else if(v.Status==="Not Received")x.u++});
+fa.forEach(v=>{const d=v.Driver_Name||"(بدون سائق)",x=g[d]=g[d]||{n:0,r:0,u:0};x.n++;if(v.Status==="Not Received")x.u++;else x.r++});
 const rows=Object.entries(g).sort((a,b)=>b[1].u-a[1].u||a[0].localeCompare(b[0],"ar")),T=rows.reduce((t,[,x])=>({n:t.n+x.n,r:t.r+x.r,u:t.u+x.u}),{n:0,r:0,u:0});
-const f=D.drv?dashFiltered(false):[],ex=D.ex||"Not Received",LIM=500;
+const showD=!!(D.drv||D.cus.length),f=showD?dashFiltered(false):[],ex=D.ex||"Not Received",LIM=500;
+const sig=JSON.stringify([D.drv,D.st,D.cus,D.wh,D.loc,D.from,D.to]);if(sig!==_lastSig){_lastSig=sig;if(invs.length&&(!fa.length||(showD&&!f.length)))beep("err")}
 dres.innerHTML=`<div class="card"><p><b>إجمالي الفواتير: ${T.n.toLocaleString()}</b> | المستلمة: ${T.r.toLocaleString()} | غير المستلمة: ${T.u.toLocaleString()} | عدد السائقين: ${rows.length}</p>
 <div class="tw"><table><tr><th>السائق</th><th>إجمالي الفواتير</th><th>المستلمة</th><th>غير المستلمة</th></tr>${rows.map(([d,x])=>`<tr><td>${esc(d)}</td><td>${x.n}</td><td>${x.r}</td><td>${x.u}</td></tr>`).join("")}<tr><th>الإجمالي</th><th>${T.n}</th><th>${T.r}</th><th>${T.u}</th></tr></table></div>
-${T.n>T.r+T.u?`<p class="note">منها ${T.n-T.r-T.u} فاتورة بحالة مرتجع بالكامل/استلام جزئي غير محسوبة في عمودَي المستلمة وغير المستلمة. (الملخص لا يتأثر بفلتر موقف إذن الاستلام).</p>`:""}</div>
-<div class="card"><div><b>تفاصيل الفواتير</b>${D.drv?` — السائق: <b>${esc(D.drv)}</b> (${f.length.toLocaleString()} فاتورة حسب الفلاتر)${f.length>LIM?`<span class="note"> — أول ${LIM} على الشاشة، والطباعة والتصدير يشملان الكل</span>`:""}</div>
-<div class="tw"><table><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>العنوان</th><th>القيمة</th><th>حالة الاستلام</th><th>حالة السداد</th><th>المخزن</th><th>موقع السائق</th></tr>
-${f.slice(0,LIM).map(v=>{const e=enr(v);return`<tr><td>${esc(v.Invoice_ID)}</td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Address)}</td><td>${(Number(v.Amount)||0).toLocaleString()}</td><td>${esc(SA[v.Status]||v.Status)}</td><td>${esc(PS[v.Paid_Status||"Unpaid"])}</td><td>${esc(e.wn)}</td><td>${esc(e.dl)}</td></tr>`}).join("")}</table></div>`:'</div><p class="note">اختر اسم السائق من الفلاتر لعرض تفاصيل فواتيره.</p>'}</div>
-<div class="card"><b>التصدير والطباعة</b>
+<p class="note">«المستلمة» تشمل: تم الاستلام، استلام جزئي، مرتجع بالكامل (أي حالة ما عدا «لم يُستلم»). الملخص لا يتأثر بفلتر موقف الاستلام.</p></div>
+<div class="card"><div><b>تفاصيل الفواتير</b>${showD?` — ${D.drv?"السائق: <b>"+esc(D.drv)+"</b> ":""}${D.cus.length?"العميل: <b>"+esc(D.cus.join("، "))+"</b> ":""}(${f.length.toLocaleString()} فاتورة حسب الفلاتر)${f.length>LIM?`<span class="note"> — أول ${LIM} على الشاشة، والطباعة والتصدير يشملان الكل</span>`:""}</div>
+<div class="tw"><table><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th>${D.drv?"":"<th>السائق</th>"}<th>العنوان</th><th>القيمة</th><th>حالة الاستلام</th><th>حالة السداد</th><th>طريقة السداد</th><th>المخزن</th><th>موقع السائق</th></tr>
+${f.slice(0,LIM).map(v=>{const e=enr(v);return`<tr><td>${esc(v.Invoice_ID)}</td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Customer_Name)}</td>${D.drv?"":`<td>${esc(v.Driver_Name)}</td>`}<td>${esc(v.Address)}</td><td>${(Number(v.Amount)||0).toLocaleString()}</td><td>${esc(SA[v.Status]||v.Status)}</td><td>${esc(PS[v.Paid_Status||"Unpaid"])}</td><td>${esc(v.Pay_Method||"—")}</td><td>${esc(e.wn)}</td><td>${esc(e.dl)}</td></tr>`}).join("")}</table></div>`:'</div><p class="note">اختر السائق أو العميل من الفلاتر لعرض تفاصيل فواتيره.</p>'}</div>
+<div class="card"><b>التصدير</b>
 <div class="row" style="margin-top:8px"><button id="e1">تصدير الملخص حسب السائق (Excel)</button></div>
-<div class="row"><label>تقرير الفواتير: <select id="es"><option value="Not Received" ${ex==="Not Received"?"selected":""}>الفواتير غير المستلمة</option><option value="Received" ${ex==="Received"?"selected":""}>الفواتير المستلمة</option></select></label><button id="e2">تصدير تقرير الفواتير (Excel)</button></div>
+<div class="row"><label>تقرير الفواتير: <select id="es"><option value="Not Received" ${ex==="Not Received"?"selected":""}>الفواتير غير المستلمة</option><option value="Received" ${ex==="Received"?"selected":""}>الفواتير المستلمة (بأي حالة)</option></select></label><button id="e2">تصدير تقرير الفواتير (Excel)</button></div>
 ${can("export")?'<div class="row"><button id="e4" class="p">تصدير كل الماستر داتا (Excel)</button></div>':""}
-<p class="note">تقرير الفواتير يتبع الفلاتر (السائق، العميل، المخزن، الموقع) وليس فلتر موقف الاستلام، ويشمل: رقم الفاتورة، العميل، العنوان، القيمة، اسم السائق، اسم المخزن، موقع السائق، حالة السداد. الطباعة (الزر أعلى الصفحة) تتبع كل الفلاتر المختارة.</p></div>`;
+<p class="note">تقرير الفواتير يتبع كل الفلاتر عدا فلتر موقف الاستلام، ويشمل: رقم الفاتورة، التاريخ، العميل، العنوان، القيمة، السائق، المخزن، موقع السائق، حالة وطريقة السداد. وبيان العميل (طباعة/Excel) يتبع كل الفلاتر بما فيها موقف الاستلام والفترة.</p></div>`;
 e1.onclick=()=>xl([...rows.map(([d,x])=>({"اسم السائق":d,"إجمالي عدد الفواتير":x.n,"عدد المستلمة":x.r,"عدد غير المستلمة":x.u})),{"اسم السائق":"الإجمالي","إجمالي عدد الفواتير":T.n,"عدد المستلمة":T.r,"عدد غير المستلمة":T.u}],"drivers_summary.xlsx");
 document.getElementById("es").onchange=e=>{D.ex=e.target.value};
-e2.onclick=()=>{const sel=document.getElementById("es").value;D.ex=sel;xl(fa.filter(v=>v.Status===sel).map(v=>{const e=enr(v);return{"رقم الفاتورة":v.Invoice_ID,"التاريخ":fdate(v.Invoice_Date),"اسم العميل":v.Customer_Name,"العنوان":v.Address,"القيمة":Number(v.Amount)||0,"اسم السائق":v.Driver_Name||"","اسم المخزن":e.wn,"موقع السائق":e.dl,"حالة السداد":PS[v.Paid_Status||"Unpaid"]}}),sel==="Received"?"invoices_received.xlsx":"invoices_not_received.xlsx")};
-document.getElementById("e3").disabled=!D.drv;document.getElementById("e3h").textContent=D.drv?"":"اختر اسم السائق أولاً لتفعيل الطباعة";if(can("export"))document.getElementById("e4").onclick=masterExport}
+e2.onclick=()=>{const sel=document.getElementById("es").value;D.ex=sel;xl(fa.filter(v=>sel==="Received"?v.Status!=="Not Received":v.Status==="Not Received").map(v=>{const e=enr(v);return{"رقم الفاتورة":v.Invoice_ID,"التاريخ":fdate(v.Invoice_Date),"اسم العميل":v.Customer_Name,"العنوان":v.Address,"القيمة":Number(v.Amount)||0,"اسم السائق":v.Driver_Name||"","اسم المخزن":e.wn,"موقع السائق":e.dl,"حالة السداد":PS[v.Paid_Status||"Unpaid"],"طريقة السداد":v.Pay_Method||""}}),sel==="Received"?"invoices_received.xlsx":"invoices_not_received.xlsx")};
+if(can("export"))document.getElementById("e4").onclick=masterExport;
+document.getElementById("e3").disabled=!D.drv;document.getElementById("e6").disabled=!D.cus.length;document.getElementById("e7").disabled=!D.cus.length;
+document.getElementById("e3h").textContent=[D.drv?"":"السائق: اختره لتفعيل بيان السائق",D.cus.length?"":"العميل: اختره لتفعيل بيان العميل"].filter(Boolean).join(" • ")}
+const stLabel=()=>D.st?SA[D.st]:"كل الحالات";
 function doPrint(html){const e=document.getElementById("prt");e.innerHTML=html+`<div class="pfoot">فكرة وتنفيذ: محمد صبري<br>© ${new Date().getFullYear()} محمد صبري — جميع الحقوق محفوظة</div>`;
 document.body.classList.add("printing");setTimeout(()=>{print();document.body.classList.remove("printing")},50)}
-function printDriver(f){doPrint(`<h2 style="text-align:center">تقرير موقف إذن استلام السائق (${esc(D.drv)})</h2>
-<p>تاريخ الطباعة: ${esc(new Date().toLocaleDateString("ar-EG-u-nu-latn"))} — الموقف: ${esc(D.st?SA[D.st]:"كل الحالات")}${D.cus?" — العميل: "+esc(D.cus):""}${D.wh?" — المخزن: "+esc(D.wh):""}${D.loc?" — موقع السائق: "+esc(D.loc):""} — عدد الفواتير: ${f.length}</p>
+function printDriver(f){if(!f.length){beep("err");return alert("لا توجد فواتير للطباعة حسب الفلاتر الحالية")}doPrint(`<h2 style="text-align:center">تقرير موقف إذن استلام السائق (${esc(D.drv)})</h2>
+<p>تاريخ الطباعة: ${esc(new Date().toLocaleDateString("ar-EG-u-nu-latn"))} — الموقف: ${esc(stLabel())}${filtDesc()?" — "+esc(filtDesc()):""} — عدد الفواتير: ${f.length}</p>
 <table><tr><th>م</th><th>رقم الفاتورة</th><th>اسم العميل</th><th>التاريخ</th><th>العنوان</th><th>حالة الاستلام</th></tr>${f.map((v,i)=>`<tr><td>${i+1}</td><td>${esc(v.Invoice_ID)}</td><td>${esc(v.Customer_Name)}</td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Address)}</td><td>${esc(SA[v.Status]||v.Status)}</td></tr>`).join("")}</table>`)}
-function printAllDrivers(pb){const l=invs.filter(v=>v.Status==="Not Received"&&(!D.cus||v.Customer_Name===D.cus)&&(!D.wh||enr(v).wn===D.wh)&&(!D.loc||enr(v).dl===D.loc));
-if(!l.length)return alert("لا توجد فواتير غير مستلمة");const g={};l.forEach(v=>{const d=v.Driver_Name||"(بدون سائق)";(g[d]=g[d]||[]).push(v)});
+function printAllDrivers(pb){const l=dashFiltered(true,true).filter(v=>v.Status==="Not Received");
+if(!l.length){beep("err");return alert("لا توجد فواتير غير مستلمة")}const g={};l.forEach(v=>{const d=v.Driver_Name||"(بدون سائق)";(g[d]=g[d]||[]).push(v)});
 const names=Object.keys(g).sort((a,b)=>collAr.compare(a,b));
 const sec=names.map((d,k)=>{const r=g[d].sort((x,y)=>nat(x.Invoice_ID,y.Invoice_ID));
 return`<div style="${pb&&k?"page-break-before:always;":""}margin-top:${k?"12px":"0"}"><h3 style="margin:0 0 4px">السائق: ${esc(d)} — عدد الفواتير غير المستلمة: ${r.length}</h3>
 <table><tr><th>م</th><th>رقم الفاتورة</th><th>التاريخ</th><th>اسم العميل</th><th>العنوان</th><th>التصنيف</th></tr>${r.map((v,i)=>`<tr><td>${i+1}</td><td>${esc(v.Invoice_ID)}</td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Address)}</td><td>${esc(v.Category1)}</td></tr>`).join("")}</table></div>`}).join("");
-const flt=[D.cus?"العميل: "+D.cus:"",D.wh?"المخزن: "+D.wh:"",D.loc?"موقع السائق: "+D.loc:""].filter(Boolean).join(" — ");
-doPrint(`<h2 style="text-align:center">موقف جميع السائقين — الفواتير غير المستلمة</h2><p>تاريخ الطباعة: ${esc(new Date().toLocaleDateString("ar-EG-u-nu-latn"))} — عدد السائقين: ${names.length} — إجمالي الفواتير: ${l.length}${flt?" — "+esc(flt):""}</p>${sec}`)}
-function printReceived(drv,dateStr,list){doPrint(`<h2 style="text-align:center">موقف أذون الاستلام المستلمة من السائق (${esc(drv)})</h2>
-<p>التاريخ: <b>${esc(fdate(dateStr))}</b> — عدد الأذون المستلمة: <b>${list.length}</b></p>
-<table><tr><th>م</th><th>رقم الفاتورة</th><th>اسم العميل</th><th>اسم السائق</th><th>العنوان</th><th>التصنيف</th></tr>${list.map((v,i)=>`<tr><td>${i+1}</td><td>${esc(v.Invoice_ID)}</td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Driver_Name)}</td><td>${esc(v.Address)}</td><td>${esc(v.Category1)}</td></tr>`).join("")}</table>
-<div class="sign"><p style="font-size:12px"><b>تم استلام أذون استلام الفواتير</b> (عددها ${list.length}) من السائق / ${esc(drv)}.</p>
-<div class="sig"><span>اسم المستلم: <b>${esc(user.u)}</b></span><span>التوقيع: ______________________</span></div></div>`)}
+doPrint(`<h2 style="text-align:center">موقف جميع السائقين — الفواتير غير المستلمة</h2><p>تاريخ الطباعة: ${esc(new Date().toLocaleDateString("ar-EG-u-nu-latn"))} — عدد السائقين: ${names.length} — إجمالي الفواتير: ${l.length}${filtDesc()?" — "+esc(filtDesc()):""}</p>${sec}`)}
+function custList(){return dashFiltered(false).sort((a,b)=>collAr.compare(a.Customer_Name||"",b.Customer_Name||"")||nat(a.Invoice_ID,b.Invoice_ID))}
+function printCustomer(){const l=custList();if(!l.length){beep("err");return alert("لا توجد فواتير لهذا العميل حسب الفلاتر الحالية")}const tot=l.reduce((t,v)=>t+(Number(v.Amount)||0),0);
+doPrint(`<h2 style="text-align:center">بيان فواتير العميل (${esc(D.cus.join("، "))})</h2><p>تاريخ الطباعة: ${esc(new Date().toLocaleDateString("ar-EG-u-nu-latn"))} — الموقف: ${esc(stLabel())}${D.drv?" — السائق: "+esc(D.drv):""}${filtDesc()?" — "+esc(filtDesc().replace(/^العميل: [^—]*—? ?/,"")):""} — عدد الفواتير: ${l.length}</p>
+<table><tr><th>م</th><th>رقم الفاتورة</th><th>التاريخ</th><th>اسم العميل</th><th>السائق</th><th>العنوان</th><th>التصنيف</th><th>حالة الاستلام</th><th>القيمة</th></tr>${l.map((v,i)=>`<tr><td>${i+1}</td><td>${esc(v.Invoice_ID)}</td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Driver_Name)}</td><td>${esc(v.Address)}</td><td>${esc(v.Category1)}</td><td>${esc(SA[v.Status]||v.Status)}</td><td>${fmN(Number(v.Amount)||0)}</td></tr>`).join("")}
+<tr><th colspan="8" style="text-align:left">الإجمالي</th><th>${fmN(tot)}</th></tr></table>`)}
+function exportCustomer(){xl(custList().map(v=>{const e=enr(v);return{"رقم الفاتورة":v.Invoice_ID,"التاريخ":fdate(v.Invoice_Date),"اسم العميل":v.Customer_Name,"العنوان":v.Address,"اسم السائق":v.Driver_Name||"","التصنيف":v.Category1||"","حالة الاستلام":SA[v.Status]||v.Status,"حالة السداد":PS[v.Paid_Status||"Unpaid"],"طريقة السداد":v.Pay_Method||"","القيمة":Number(v.Amount)||0,"اسم المخزن":e.wn}}),"customer_statement.xlsx")}
+function payMgr(){if(user.role!=="admin")return;const ov=document.createElement("div");ov.className="modal";
+const draw=()=>{ov.innerHTML=`<div class="mbox"><b>💳 إدارة طرق السداد</b><p class="note">هذه الطرق تظهر في شاشتي «البحث والتحديث» و«متابعة السائقين». حذف طريقة لا يمسح قيمتها من الفواتير القديمة.</p>
+<div>${PM.map((m,i)=>`<div class="row" style="margin-bottom:4px"><span style="flex:1">${esc(m)}</span><button data-d="${i}">حذف</button></div>`).join("")||'<p class="note">لا توجد طرق سداد</p>'}</div>
+<div class="row" style="margin-top:8px"><input id="pmn" placeholder="اسم طريقة سداد جديدة"><button class="p" id="pma">إضافة</button></div><div class="row"><button id="pmx">إغلاق</button></div></div>`;
+ov.querySelectorAll("[data-d]").forEach(b=>b.onclick=async()=>{await savePM(PM.filter((x,i)=>i!==+b.dataset.d));draw()});
+ov.querySelector("#pma").onclick=async()=>{const n=ov.querySelector("#pmn").value.trim();if(!n)return;if(PM.includes(n))return alert("الطريقة موجودة بالفعل");await savePM([...PM,n]);draw()};ov.querySelector("#pmx").onclick=()=>ov.remove()};
+document.body.appendChild(ov);draw()}
 function masterExport(){if(!can("export"))return alert("ليست لديك صلاحية تصدير الماستر داتا");xl(invs.map(v=>{const e=enr(v);return Object.fromEntries(MASTER.flatMap(k=>k==="Warehouse"?[["Warehouse",v.Warehouse??""],["Warehouse_Name",e.wn]]:k==="Driver_Location"?[[k,e.dl]]:k==="Invoice_Date"?[[k,parseDate(v[k])]]:k==="Received_At"?[[k,recAt(v)?isoLocal(recAt(v)):""]]:k==="First_Edit_At"?[[k,v.First_At?isoLocal(v.First_At):""]]:k==="Last_Edit_At"?[[k,v.ts?isoLocal(v.ts):""]]:[[k,v[k]??""]]))}),"master_data.xlsx")}
-/* ---- متابعة السائقين: بحث باسم السائق + فواتير غير مستلمة + تحديث سريع + طباعة موقف الأذون المستلمة ---- */
-let Q={drv:"",st:"Not Received",date:"",dq:""},DMSG="";
+/* ---- متابعة السائقين: بحث بالسائق/العميل + فترة تاريخ + تحديث سريع + طباعة موقف الأذون المستلمة ---- */
+let Q={drv:"",cus:"",st:"Not Received",from:"",to:""},DMSG="";
 const todayStr=()=>ymd(new Date());
-const recOn=(drv,d)=>invs.filter(v=>v.Driver_Name===drv&&v.Status==="Received"&&recAt(v)&&ymd(new Date(recAt(v)))===d).sort((a,b)=>nat(a.Invoice_ID,b.Invoice_ID));
-function drvRows(){if(!Q.drv)return[];const d=Q.date||todayStr();return(Q.st==="Received"?recOn(Q.drv,d):invs.filter(v=>v.Driver_Name===Q.drv&&(Q.st==="all"||v.Status===Q.st)).sort((a,b)=>nat(a.Invoice_ID,b.Invoice_ID)))}
-function drvList(){const m={};invs.forEach(v=>{const d=v.Driver_Name;if(!d)return;const x=m[d]=m[d]||{u:0};if(v.Status==="Not Received")x.u++});return Object.entries(m).sort((a,b)=>b[1].u-a[1].u||a[0].localeCompare(b[0],"ar"))}
-function drvOptsHtml(){return'<option value="">— اختر السائق —</option>'+drvList().map(d=>`<option value="${esc(d[0])}" ${d[0]===Q.drv?"selected":""}>${esc(d[0])} (${d[1].u} غير مستلمة)</option>`).join("")}
-function drvView(){main.innerHTML=`<div class="card"><div class="row" style="margin:0;align-items:flex-end"><label class="fl" style="flex:1;min-width:280px">السائق (اكتب للبحث أو اختر — وبجانب الاسم عدد الفواتير غير المستلمة)<div id="dsel"></div></label>
-<div class="fl">عرض<div class="seg" id="dst">${[["Not Received","غير المستلمة"],["Received","المستلمة بتاريخ"],["all","الكل"]].map(([k,l])=>`<button type="button" class="blue ${k===Q.st?"on":""}" data-st="${k}">${l}</button>`).join("")}</div></div>
-<label class="fl">التاريخ<input type="date" id="dd" value="${esc(Q.date||todayStr())}" style="font-size:1em"></label></div></div><div class="card grow" id="dtab"></div>`;
-combo(dsel,{ph:"اكتب اسم السائق أو اختر من القائمة",items:()=>drvList().map(d=>({v:d[0],t:`${d[0]} (${d[1].u} غير مستلمة)`})),val:()=>Q.drv,pick:v=>{Q.drv=v;drvTable()}});
-document.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{Q.st=b.dataset.st;document.querySelectorAll("[data-st]").forEach(x=>x.classList.toggle("on",x===b));drvTable()});
-dd.onchange=()=>{Q.date=dd.value;drvTable()};drvTable()}
+const inR=(d,f,t)=>(!f||d>=f)&&(!t||d<=t);
+function recRange(){let f=Q.from,t=Q.to;if(!f&&!t)f=t=todayStr();return[f,t]}
+function recList(drv,cus,f,t){return invs.filter(v=>v.Status!=="Not Received"&&(!drv||v.Driver_Name===drv)&&(!cus||v.Customer_Name===cus)&&recAt(v)&&inR(ymd(new Date(recAt(v))),f,t)).sort((a,b)=>nat(a.Invoice_ID,b.Invoice_ID))}
+function drvRows(){if(!Q.drv&&!Q.cus)return[];if(Q.st==="Received"){const[f,t]=recRange();return recList(Q.drv,Q.cus,f,t)}
+return invs.filter(v=>(!Q.drv||v.Driver_Name===Q.drv)&&(!Q.cus||v.Customer_Name===Q.cus)&&(Q.st==="all"||v.Status===Q.st)&&((!Q.from&&!Q.to)||(d=>d&&inR(d,Q.from,Q.to))(parseDate(v.Invoice_Date)))).sort((a,b)=>nat(a.Invoice_ID,b.Invoice_ID))}
+let _dv={v:-1,r:null};
+function drvList(){if(_dv.v===dataVer)return _dv.r;const m={};invs.forEach(v=>{const d=v.Driver_Name;if(!d)return;const x=m[d]=m[d]||{u:0};if(v.Status==="Not Received")x.u++});const r=Object.entries(m).sort((a,b)=>b[1].u-a[1].u||a[0].localeCompare(b[0],"ar"));_dv={v:dataVer,r};return r}
+function drvView(){main.innerHTML=`<div class="card"><div class="row" style="margin:0;align-items:flex-end;gap:10px">
+<label class="fl" style="flex:1;min-width:230px">السائق (اكتب للبحث أو اختر — وبجانب الاسم عدد غير المستلمة)<div id="dsel"></div></label>
+<label class="fl" style="flex:1;min-width:200px">العميل (اكتب للبحث)<div id="dcus"></div></label>
+<div class="fl">عرض<div class="seg" id="dst">${[["Not Received","غير المستلمة"],["Received","المستلمة (بتاريخ/فترة)"],["all","الكل"]].map(([k,l])=>`<button type="button" class="blue ${k===Q.st?"on":""}" data-st="${k}">${l}</button>`).join("")}</div></div>
+<label class="fl"><span id="dfl"></span><input type="date" id="dfrom" value="${esc(Q.from)}" style="font-size:1em"></label><label class="fl"><span id="dtl"></span><input type="date" id="dto" value="${esc(Q.to)}" style="font-size:1em"></label></div></div><div class="card grow" id="dtab"></div>`;
+combo(dsel,{ph:"اكتب اسم السائق أو اختر",all:"كل السائقين",items:()=>drvList().map(d=>({v:d[0],t:`${d[0]} (${d[1].u} غير مستلمة)`})),val:()=>Q.drv,pick:v=>{Q.drv=v;drvTable()}});
+combo(dcus,{ph:"اكتب اسم العميل أو اختر",all:"كل العملاء",items:()=>dashLists().cus.map(x=>({v:x,t:x})),val:()=>Q.cus,pick:v=>{Q.cus=v;drvTable()}});
+const lbl=()=>{const r=Q.st==="Received";dfl.textContent=r?"من تاريخ الاستلام":"من تاريخ الفاتورة";dtl.textContent=r?"إلى تاريخ الاستلام"+(!Q.from&&!Q.to?" (الافتراضي اليوم)":""):"إلى تاريخ الفاتورة"};lbl();
+document.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{Q.st=b.dataset.st;document.querySelectorAll("[data-st]").forEach(x=>x.classList.toggle("on",x===b));lbl();drvTable()});
+dfrom.onchange=()=>{Q.from=dfrom.value;lbl();drvTable()};dto.onchange=()=>{Q.to=dto.value;lbl();drvTable()};drvTable()}
+function printReceived(drv,cus,f,t,list){doPrint(`<h2 style="text-align:center">موقف أذون الاستلام المستلمة ${drv?"من السائق":"للعميل"} (${esc(drv||cus)})</h2>
+<p>الفترة: <b>${f===t?esc(fdate(f)):esc(fdate(f))+" ← "+esc(fdate(t))}</b>${drv&&cus?" — العميل: "+esc(cus):""} — عدد الأذون المستلمة: <b>${list.length}</b></p>
+<table><tr><th>م</th><th>رقم الفاتورة</th><th>التاريخ</th><th>اسم العميل</th><th>اسم السائق</th><th>العنوان</th><th>التصنيف</th><th>الحالة</th></tr>${list.map((v,i)=>`<tr><td>${i+1}</td><td>${esc(v.Invoice_ID)}</td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Driver_Name)}</td><td>${esc(v.Address)}</td><td>${esc(v.Category1)}</td><td>${esc(SA[v.Status]||v.Status)}</td></tr>`).join("")}</table>
+<div class="sign"><p style="font-size:12px"><b>تم استلام أذون استلام الفواتير</b> (عددها ${list.length}) ${drv?"من السائق / "+esc(drv):"الخاصة بالعميل / "+esc(cus)}.</p>
+<div class="sig"><span>اسم المستلم: <b>${esc(user.u)}</b></span><span>التوقيع: ______________________</span></div></div>`)}
 function drvTable(){const box=document.getElementById("dtab");if(!box)return;const dsel0=document.getElementById("dsel");if(dsel0&&dsel0.refresh)dsel0.refresh();const ce=can("edit"),msg=DMSG;DMSG="";
-if(!Q.drv){box.innerHTML='<p class="note" style="text-align:center;padding:28px">اختر السائق من القائمة أعلاه لعرض فواتيره</p>';return}
-const rows=drvRows(),LIM=300,d=Q.date||todayStr(),rc=recOn(Q.drv,d).length;
-box.innerHTML=`${msg?`<p class="ok">${esc(msg)}</p>`:""}<div class="row"><b>السائق: ${esc(Q.drv)}</b><span class="note">${rows.length.toLocaleString()} فاتورة${rows.length>LIM?" (أول "+LIM+" على الشاشة)":""}</span><span style="margin-inline-start:auto"></span>
-${ce?`<button class="green on" data-b="Received" style="--c:#16a34a;background:#16a34a;color:#fff;border-color:#16a34a">✔ تم الاستلام للمحدد</button><button data-b="Partial">استلام جزئي</button><button data-b="Returned">مرتجع بالكامل</button><button data-b="Not Received">لم يُستلم</button><button class="p" id="dsave">💾 حفظ التعديلات (<span id="dcnt">0</span>)</button>`:""}
-<button id="dprint">🖨 طباعة موقف الأذون المستلمة (${esc(fdate(d))}) — ${rc}</button></div>
-<div class="tw"><table class="qt"><tr>${ce?'<th><input type="checkbox" id="dall"></th>':""}<th>رقم الفاتورة</th><th>العميل</th><th>العنوان</th><th>التصنيف</th><th>القيمة</th><th>الاستلام</th><th>السداد</th><th>PO</th><th>المرتجع</th><th>ملاحظات</th></tr>
-${rows.slice(0,LIM).map(v=>`<tr data-id="${esc(v.Invoice_ID)}">${ce?'<td><input type="checkbox" class="dk"></td>':""}<td><b>${esc(v.Invoice_ID)}</b></td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Address)}</td><td>${esc(v.Category1)}</td><td>${(Number(v.Amount)||0).toLocaleString()}</td>
+if(!Q.drv&&!Q.cus){box.innerHTML='<p class="note" style="text-align:center;padding:28px">اختر السائق أو العميل (بالكتابة أو من القائمة) لعرض فواتيره</p>';return}
+const rows=drvRows(),LIM=300,[rf,rt]=recRange(),rc=recList(Q.drv,Q.cus,rf,rt).length,isRec=Q.st==="Received";
+const pmOpts=(cur)=>{const l=[...PM];if(cur&&!l.includes(cur))l.push(cur);return`<option value="">—</option>`+l.map(x=>`<option value="${esc(x)}" ${x===cur?"selected":""}>${esc(x)}</option>`).join("")};
+box.innerHTML=`${msg?`<p class="ok">${esc(msg)}</p>`:""}<div class="row"><b>${Q.drv?"السائق: "+esc(Q.drv):""}${Q.drv&&Q.cus?" — ":""}${Q.cus?"العميل: "+esc(Q.cus):""}</b><span class="note">${rows.length.toLocaleString()} فاتورة${rows.length>LIM?" (أول "+LIM+" على الشاشة)":""}</span><span style="margin-inline-start:auto"></span>
+${ce?`<button data-b="Received" style="background:#16a34a;color:#fff;border-color:#16a34a">✔ تم الاستلام للمحدد</button><button data-b="Partial">استلام جزئي</button><button data-b="Returned">مرتجع بالكامل</button><button data-b="Not Received">لم يُستلم</button><button class="p" id="dsave">💾 حفظ التعديلات (<span id="dcnt">0</span>)</button><button id="dundo">↩ تراجع</button>`:""}
+<button id="dprint">🖨 طباعة موقف الأذون المستلمة (${esc(rf===rt?fdate(rf):fdate(rf)+" ← "+fdate(rt))}) — ${rc}</button></div>
+<div class="tw"><table class="qt"><tr>${ce?'<th><input type="checkbox" id="dall"></th>':""}<th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>العنوان</th><th>التصنيف</th><th>القيمة</th>${isRec?"<th>تاريخ الاستلام</th>":""}<th>الاستلام</th><th>السداد</th><th>طريقة السداد</th><th>PO</th><th>المرتجع</th><th>ملاحظات</th></tr>
+${rows.slice(0,LIM).map(v=>`<tr data-id="${esc(v.Invoice_ID)}">${ce?'<td><input type="checkbox" class="dk"></td>':""}<td><b>${esc(v.Invoice_ID)}</b></td><td>${esc(fdate(v.Invoice_Date))}</td><td>${esc(v.Customer_Name)}</td><td>${esc(v.Address)}</td><td>${esc(v.Category1)}</td><td>${(Number(v.Amount)||0).toLocaleString()}</td>${isRec?`<td>${esc(recAt(v)?fdate(ymd(new Date(recAt(v)))):"")}</td>`:""}
 <td><select data-f="Status" ${ce?"":"disabled"}>${ST.map(x=>`<option value="${x}" ${x===v.Status?"selected":""}>${SA[x]}</option>`).join("")}</select></td><td><select data-f="Paid_Status" ${ce?"":"disabled"}>${Object.keys(PS).map(x=>`<option value="${x}" ${x===(v.Paid_Status||"Unpaid")?"selected":""}>${PS[x]}</option>`).join("")}</select></td>
-<td><input data-f="PO_Number" value="${esc(cz(v.PO_Number))}" ${ce?"":"disabled"} style="width:105px"></td><td><input data-f="Return_Number" value="${esc(cz(v.Return_Number))}" ${ce?"":"disabled"} style="width:105px"></td><td><input data-f="Notes" value="${esc(v.Notes)}" ${ce?"":"disabled"} style="min-width:150px"></td></tr>`).join("")||`<tr><td colspan="11" class="note" style="text-align:center;padding:18px">لا توجد فواتير بهذه الحالة</td></tr>`}</table></div>`;
+<td><select data-f="Pay_Method" ${ce?"":"disabled"}>${pmOpts(v.Pay_Method||"")}</select></td>
+<td><input data-f="PO_Number" value="${esc(cz(v.PO_Number))}" ${ce?"":"disabled"} style="width:105px"></td><td><input data-f="Return_Number" value="${esc(cz(v.Return_Number))}" ${ce?"":"disabled"} style="width:105px"></td><td><input data-f="Notes" value="${esc(v.Notes)}" ${ce?"":"disabled"} style="min-width:150px"></td></tr>`).join("")||`<tr><td colspan="14" class="note" style="text-align:center;padding:18px">لا توجد فواتير بهذه الحالة</td></tr>`}</table></div>`;
+if(!rows.length&&sigDrv()!==_lastDrvSig){_lastDrvSig=sigDrv();beep("err")}else _lastDrvSig=sigDrv();
 const cnt=()=>{const e=document.getElementById("dcnt");if(e)e.textContent=document.querySelectorAll("#dtab tr.dirty").length};
 box.querySelectorAll("[data-f]").forEach(el=>el.oninput=el.onchange=()=>{el.closest("tr").classList.add("dirty");cnt()});
 if(ce){const all=document.getElementById("dall");all.onchange=()=>box.querySelectorAll(".dk").forEach(k=>k.checked=all.checked);
-box.querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{const sel=[...box.querySelectorAll("tr[data-id]")].filter(tr=>tr.querySelector(".dk").checked);if(!sel.length)return alert("حدّد فاتورة واحدة على الأقل");
-sel.forEach(tr=>{tr.querySelector('[data-f="Status"]').value=b.dataset.b;tr.classList.add("dirty")});saveDirty()});document.getElementById("dsave").onclick=saveDirty}
-document.getElementById("dprint").onclick=()=>{const l=recOn(Q.drv,d);if(!l.length)return alert("لا توجد أذون مستلمة من هذا السائق بتاريخ "+fdate(d));printReceived(Q.drv,d,l)}}
+box.querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{const sel=[...box.querySelectorAll("tr[data-id]")].filter(tr=>tr.querySelector(".dk").checked);if(!sel.length){beep("err");return alert("حدّد فاتورة واحدة على الأقل")}
+sel.forEach(tr=>{tr.querySelector('[data-f="Status"]').value=b.dataset.b;tr.classList.add("dirty")});saveDirty()});document.getElementById("dsave").onclick=saveDirty;document.getElementById("dundo").onclick=doUndo}
+document.getElementById("dprint").onclick=()=>{const l=recList(Q.drv,Q.cus,rf,rt);if(!l.length){beep("err");return alert("لا توجد أذون مستلمة بهذا التاريخ/الفترة")}printReceived(Q.drv,Q.cus,rf,rt,l)}}
+let _lastDrvSig="";const sigDrv=()=>JSON.stringify([Q.drv,Q.cus,Q.st,Q.from,Q.to]);
 async function saveDirty(){if(!can("edit"))return;const trs=[...document.querySelectorAll("#dtab tr.dirty")];if(!trs.length)return;
-const items=trs.map(tr=>{const g=f=>tr.querySelector(`[data-f="${f}"]`).value;return{id:tr.dataset.id,fields:{Status:g("Status"),Paid_Status:g("Paid_Status"),PO_Number:cz(g("PO_Number")),Return_Number:cz(g("Return_Number")),Notes:g("Notes").trim()}}});
-try{const j=await api("/api/invoices/edit",{items});applyInvs(j.updated);DMSG=`تم تحديث ${j.updated.length} فاتورة ✔`;drvTable();banner()}catch(e){alert(e.message)}}
+const items=trs.map(tr=>{const g=f=>tr.querySelector(`[data-f="${f}"]`).value;return{id:tr.dataset.id,fields:{Status:g("Status"),Paid_Status:g("Paid_Status"),Pay_Method:g("Pay_Method"),PO_Number:cz(g("PO_Number")),Return_Number:cz(g("Return_Number")),Notes:g("Notes").trim()}}});
+try{const j=await api("/api/invoices/edit",{items});applyInvs(j.updated);beep("ok");DMSG=`تم تحديث ${j.updated.length} فاتورة ✔`;drvTable();banner()}catch(e){beep("err");alert(e.message)}}
 /* ---- الاستيراد ---- */
 let P=null;
 const ymd=x=>new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10);
@@ -434,7 +514,7 @@ const j=await api("/api/import/erp",{rows});if(j.reload)await loadState();else i
 const PAYN={paid:"Paid","مدفوعة":"Paid","مدفوع":"Paid",unpaid:"Unpaid","غير مدفوعة":"Unpaid","غير مدفوع":"Unpaid"};
 const normPay=x=>PAYN[String(x||"").trim().toLowerCase()];
 const normSt=x=>ST.find(t=>t.toLowerCase()===String(x||"").trim().toLowerCase());
-const MI_COLS=[...ERP.filter(k=>k!=="Invoice_ID"&&k!=="Driver_Location"),"Status","Paid_Status","Notes","Return_Number","PO_Number"];
+const MI_COLS=[...ERP.filter(k=>k!=="Invoice_ID"&&k!=="Driver_Location"),"Status","Paid_Status","Pay_Method","Notes","Return_Number","PO_Number"];
 async function masterImport(f){const mr=document.getElementById("mr");if(!f)return;
 if(!can("replace")){mr.innerHTML='<p class="bad">ليست لديك صلاحية استبدال الماستر داتا.</p>';return}
 try{const wb=await XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);if(!rows.length)throw new Error("الملف فارغ");
@@ -452,7 +532,7 @@ const cur=byId.get(id);if(!cur){order.push({id,vals,nw:true,fe:String(r.First_Ed
 const diff=[];for(const k in vals){const o=cur[k]??"";if(String(o)!==String(vals[k])){diff.push([k,o,vals[k]]);cnt[k]=(cnt[k]||0)+1}}
 if(diff.length)nchg++;else same++;order.push({id,cur,diff})});
 const del=invs.filter(v=>!seen.has(String(v.Invoice_ID))),nnew=order.filter(o=>o.nw).length;
-const nm=k=>L[k]||(k==="Status"?"حالة الاستلام":k==="Paid_Status"?"حالة الدفع":k==="Notes"?"ملاحظات":k==="Return_Number"?"رقم المرتجع":k==="PO_Number"?"رقم PO":k);
+const nm=k=>L[k]||(k==="Status"?"حالة الاستلام":k==="Paid_Status"?"حالة الدفع":k==="Pay_Method"?"طريقة السداد":k==="Notes"?"ملاحظات":k==="Return_Number"?"رقم المرتجع":k==="PO_Number"?"رقم PO":k);
 let h=`<hr><b>مراجعة الاستبدال الكامل (لم يُطبَّق شيء بعد)</b><p>أعمدة سيتم تحديثها: <b>${used.map(nm).map(esc).join("، ")||"لا يوجد"}</b>${absent.length?`<br><span class="note">أعمدة غير موجودة في ملفك (تبقى قيمها الحالية): ${absent.map(nm).map(esc).join("، ")}</span>`:""}${ign.length?`<br><span class="note">أعمدة متجاهَلة: ${ign.map(esc).join("، ")}</span>`:""}</p>
 <p>صفوف الملف: ${order.length.toLocaleString()} (الفواتير الحالية بالنظام: ${invs.length.toLocaleString()}) — ستتغير <b class="ok">${nchg}</b> — بدون تغيير ${same} — جديدة تُضاف <b class="ok">${nnew}</b> — غير موجودة في الملف وستُحذف <b class="bad">${del.length.toLocaleString()}</b> — مكررة داخل الملف (تُتجاهل) ${dup} — قيم غير صالحة للحالة/الدفع (تُتجاهل) <b class="${bad?"bad":""}">${bad}</b></p>`;
 if(del.length&&order.length<invs.length/2)h+=`<p class="bad">⚠ تحذير: الملف يحتوي أقل من نصف فواتير النظام الحالية. تأكد أنه الملف الصحيح وأنه ماستر داتا كاملة.</p>`;

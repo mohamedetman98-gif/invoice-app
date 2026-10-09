@@ -32,7 +32,8 @@ const kvSet = (k, v) => Q('INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPD
 /* ---------------- ثوابت ومنطق الأعمال (نفس قواعد الواجهة) ---------------- */
 const ST = ['Not Received', 'Received', 'Returned', 'Partial'], PAY = ['Unpaid', 'Paid'];
 const ERP_FIELDS = ['Invoice_Date', 'Customer_Code', 'Customer_Name', 'Address', 'Transaction_Type', 'Category1', 'Sales_Order', 'Driver_Name', 'Amount', 'Payment_Term', 'Customer_Category', 'Warehouse', 'Driver_Location', 'Registration'];
-const EDITABLE = ['Status', 'Paid_Status', 'PO_Number', 'Return_Number', 'Notes'];
+const EDITABLE = ['Status', 'Paid_Status', 'Pay_Method', 'PO_Number', 'Return_Number', 'Notes'];
+const PM_DEFAULT = ['نقدي', 'بساطة', 'فوري'];
 const MASTER_FIELDS = [...ERP_FIELDS.filter(k => k !== 'Driver_Location'), ...EDITABLE];
 const PERMS = ['edit', 'import', 'export', 'replace', 'lookups', 'backup', 'restore'];
 const ROLE_DEF = { admin: Object.fromEntries(PERMS.map(k => [k, true])), entry: { edit: true, import: true, export: true }, viewer: {} };
@@ -53,7 +54,7 @@ const INV = new Map();
 for (const r of Q('SELECT id,data FROM invoices').all()) INV.set(r.id, JSON.parse(r.data));
 const putInv = o => Q('INSERT INTO invoices(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(o.Invoice_ID, JSON.stringify(o));
 function newInv(id, f) {
-  const o = { Invoice_ID: id, Status: 'Not Received', Paid_Status: 'Unpaid', Notes: '', Return_Number: '', PO_Number: '', First_Editor: '', First_At: 0, User_Name: '', ts: 0, Received_At: 0 };
+  const o = { Invoice_ID: id, Status: 'Not Received', Paid_Status: 'Unpaid', Pay_Method: '', Notes: '', Return_Number: '', PO_Number: '', First_Editor: '', First_At: 0, User_Name: '', ts: 0, Received_At: 0 };
   for (const k of ERP_FIELDS) if (k in f) o[k] = sanitize(k, f[k]);
   return o;
 }
@@ -62,8 +63,9 @@ function applyFields(inv, fields, now, user) {
   let ch = false;
   for (const k of EDITABLE) {
     if (!(k in fields)) continue; let v = fields[k];
-    if (k === 'Status') { if (!ST.includes(v)) throw bad('حالة استلام غير صالحة'); if (inv.Status !== v) { if (v === 'Received') inv.Received_At = now; else if (inv.Status === 'Received') inv.Received_At = 0; inv.Status = v; ch = true; } }
+    if (k === 'Status') { if (!ST.includes(v)) throw bad('حالة استلام غير صالحة'); if (inv.Status !== v) { if (v !== 'Not Received') { if (inv.Status === 'Not Received') inv.Received_At = now; } else inv.Received_At = 0; inv.Status = v; ch = true; } }
     else if (k === 'Paid_Status') { if (!PAY.includes(v)) throw bad('حالة دفع غير صالحة'); if ((inv.Paid_Status || 'Unpaid') !== v) { inv.Paid_Status = v; ch = true; } }
+    else if (k === 'Pay_Method') { v = String(v == null ? '' : v).trim().slice(0, 40); if ((inv.Pay_Method || '') !== v) { inv.Pay_Method = v; ch = true; } }
     else { v = (k === 'Notes') ? String(v == null ? '' : v).trim().slice(0, 4000) : cz(v); if ((inv[k] || '') !== v) { inv[k] = v; ch = true; } }
   }
   if (ch) { inv.First_Editor = inv.First_Editor || user.u; inv.First_At = inv.First_At || now; inv.User_Name = user.u; inv.ts = now; }
@@ -113,7 +115,7 @@ function dropClients(pred) { for (const c of [...clients]) if (pred(c)) { try { 
 
 /* ---------------- النسخ الاحتياطي ---------------- */
 const bkSettings = () => ({ autoFile: true, hours: 24, fileHours: 24, keep: 30, keepFiles: 30, lastSnap: null, lastFile: null, ...kvGet('bkset', {}) });
-function snapshot() { return { app: 'invoice-server', v: 3, at: new Date().toISOString(), users: Q('SELECT username,salt,hash,role,active,pm,must_change FROM users').all(), invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []) }; }
+function snapshot() { return { app: 'invoice-server', v: 3, at: new Date().toISOString(), users: Q('SELECT username,salt,hash,role,active,pm,must_change FROM users').all(), invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), PM: kvGet('PM', PM_DEFAULT) }; }
 function saveBackup(label, by) {
   const d = snapshot(); const blob = zlib.gzipSync(Buffer.from(JSON.stringify(d)));
   Q('INSERT OR REPLACE INTO backups(at,label,by,n,u,blob) VALUES(?,?,?,?,?,?)').run(d.at, label, by, d.invs.length, d.users.length, blob);
@@ -138,8 +140,8 @@ function restore(d, actor, label, src) {
   saveBackup('قبل الاستعادة (' + label + ')', actor.u);
   tx(() => {
     Q('DELETE FROM invoices').run(); INV.clear();
-    for (const raw of d.invs) { const id = String(raw.Invoice_ID || '').trim(); if (!id) continue; const o = { ...newInv(id, raw) }; for (const k of ['Status', 'Paid_Status', 'PO_Number', 'Return_Number', 'Notes', 'First_Editor', 'User_Name']) if (raw[k] != null) o[k] = String(raw[k]); for (const k of ['First_At', 'ts', 'Received_At']) o[k] = +raw[k] || 0; if (!ST.includes(o.Status)) o.Status = 'Not Received'; if (!PAY.includes(o.Paid_Status)) o.Paid_Status = 'Unpaid'; o.PO_Number = cz(o.PO_Number); o.Return_Number = cz(o.Return_Number); INV.set(id, o); putInv(o); }
-    kvSet('WH', Array.isArray(d.WH) ? d.WH : []); kvSet('DR', Array.isArray(d.DR) ? d.DR : []);
+    for (const raw of d.invs) { const id = String(raw.Invoice_ID || '').trim(); if (!id) continue; const o = { ...newInv(id, raw) }; for (const k of ['Status', 'Paid_Status', 'Pay_Method', 'PO_Number', 'Return_Number', 'Notes', 'First_Editor', 'User_Name']) if (raw[k] != null) o[k] = String(raw[k]); for (const k of ['First_At', 'ts', 'Received_At']) o[k] = +raw[k] || 0; if (!ST.includes(o.Status)) o.Status = 'Not Received'; if (!PAY.includes(o.Paid_Status)) o.Paid_Status = 'Unpaid'; o.PO_Number = cz(o.PO_Number); o.Return_Number = cz(o.Return_Number); INV.set(id, o); putInv(o); }
+    kvSet('WH', Array.isArray(d.WH) ? d.WH : []); kvSet('DR', Array.isArray(d.DR) ? d.DR : []); if (Array.isArray(d.PM)) kvSet('PM', d.PM);
     if (full) {
       const ses = Q('SELECT s.token,u.username,s.created,s.last FROM sessions s JOIN users u ON u.id=s.user_id').all();
       Q('DELETE FROM sessions').run(); Q('DELETE FROM users').run();
@@ -202,7 +204,7 @@ route('POST', /^\/api\/password$/, async (req, res, ctx, b) => {
 });
 route('GET', /^\/api\/state$/, async (req, res, ctx) => {
   const me = pub(Q('SELECT * FROM users WHERE id=?').get(ctx.id)); if (me.mustChange) throw new HttpError(403, 'يجب تغيير كلمة المرور أولاً');
-  const o = { me, invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), now: Date.now() };
+  const o = { me, invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), PM: kvGet('PM', PM_DEFAULT), now: Date.now() };
   if (ctx.role === 'admin') o.users = Q('SELECT * FROM users ORDER BY username').all().map(pub);
   return [200, o];
 });
@@ -212,12 +214,25 @@ route('GET', /^\/api\/events$/, async (req, res, ctx) => {
 });
 route('POST', /^\/api\/invoices\/edit$/, async (req, res, ctx, b) => {
   need(ctx, 'edit'); const items = Array.isArray(b.items) ? b.items : []; if (!items.length || items.length > 5000) throw bad('لا توجد عناصر');
-  const now = Date.now(), updated = [], conflicts = [];
+  const now = Date.now(), updated = [], conflicts = [], before = [];
   tx(() => { for (const it of items) { const id = String(it.id); const inv = INV.get(id); if (!inv) continue;
     if (it.expectedTs !== undefined && (+it.expectedTs || 0) !== (inv.ts || 0)) { conflicts.push({ id, current: inv }); continue; }
-    const copy = { ...inv }; if (applyFields(copy, it.fields || {}, now, ctx)) { INV.set(id, copy); putInv(copy); updated.push(copy); } else updated.push(inv); } });
-  const changed = updated.filter(x => x.ts === now); if (changed.length) broadcast('invs', { items: changed, src: req.headers['x-client'] || '' });
+    const copy = { ...inv }; if (applyFields(copy, it.fields || {}, now, ctx)) { INV.set(id, copy); putInv(copy); updated.push(copy); before.push({ id, before: inv, afterTs: now }); } else updated.push(inv); } });
+  const changed = updated.filter(x => x.ts === now); if (changed.length) { pushUndo(ctx.u, before); broadcast('invs', { items: changed, src: req.headers['x-client'] || '' }); }
   return [200, { updated, conflicts }];
+});
+const undoLog = new Map();
+function pushUndo(u, items) { const a = (undoLog.get(u) || []).filter(o => Date.now() - o.at < 864e5); a.push({ items, at: Date.now() }); while (a.length > 30) a.shift(); undoLog.set(u, a); }
+route('POST', /^\/api\/undo$/, async (req, res, ctx) => {
+  need(ctx, 'edit'); const a = (undoLog.get(ctx.u) || []).filter(o => Date.now() - o.at < 864e5); undoLog.set(ctx.u, a); const op = a.pop();
+  if (!op) throw new HttpError(404, 'لا توجد حركة تعديل للتراجع عنها');
+  const restored = []; tx(() => { for (const it of op.items) { const cur = INV.get(it.id); if (!cur || (cur.ts || 0) !== it.afterTs) continue; INV.set(it.id, it.before); putInv(it.before); restored.push(it.before); } });
+  if (!restored.length) throw new HttpError(409, 'لا يمكن التراجع: الفواتير عُدّلت بعد ذلك من مستخدم آخر');
+  broadcast('invs', { items: restored, src: req.headers['x-client'] || '' }); return [200, { updated: restored }];
+});
+route('PUT', /^\/api\/paymethods$/, async (req, res, ctx, b) => {
+  adminOnly(ctx); const PM = [...new Set((Array.isArray(b.PM) ? b.PM : []).map(x => String(x || '').trim().slice(0, 40)).filter(Boolean))].slice(0, 30);
+  kvSet('PM', PM); broadcast('paymethods', { PM, src: req.headers['x-client'] || '' }); return [200, { ok: true }];
 });
 route('POST', /^\/api\/import\/erp$/, async (req, res, ctx, b) => {
   need(ctx, 'import'); const rows = Array.isArray(b.rows) ? b.rows : []; const added = []; let skipped = 0;
