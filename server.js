@@ -59,11 +59,11 @@ function newInv(id, f) {
   return o;
 }
 /* تطبيق الحقول القابلة للتعديل مع ختم المستخدم والوقت من الخادم */
-function applyFields(inv, fields, now, user) {
+function applyFields(inv, fields, now, user, opts) {
   let ch = false;
   for (const k of EDITABLE) {
     if (!(k in fields)) continue; let v = fields[k];
-    if (k === 'Status') { if (!ST.includes(v)) throw bad('حالة استلام غير صالحة'); if (inv.Status !== v) { if (v !== 'Not Received') { if (inv.Status === 'Not Received') inv.Received_At = now; } else inv.Received_At = 0; inv.Status = v; ch = true; } }
+    if (k === 'Status') { if (!ST.includes(v)) throw bad('حالة استلام غير صالحة'); if (inv.Status !== v) { if (opts && opts.keepReceived) { if (v === 'Not Received') inv.Received_At = 0; } else if (v !== 'Not Received') { if (inv.Status === 'Not Received') inv.Received_At = now; } else inv.Received_At = 0; inv.Status = v; ch = true; } }
     else if (k === 'Paid_Status') { if (!PAY.includes(v)) throw bad('حالة دفع غير صالحة'); if ((inv.Paid_Status || 'Unpaid') !== v) { inv.Paid_Status = v; ch = true; } }
     else if (k === 'Pay_Method') { v = String(v == null ? '' : v).trim().slice(0, 40); if ((inv.Pay_Method || '') !== v) { inv.Pay_Method = v; ch = true; } }
     else { v = (k === 'Notes') ? String(v == null ? '' : v).trim().slice(0, 4000) : cz(v); if ((inv[k] || '') !== v) { inv[k] = v; ch = true; } }
@@ -85,13 +85,61 @@ async function addUser(username, password, role, mustChange) {
   const salt = newSalt(), hash = await hashPw(password, salt);
   Q('INSERT INTO users(username,salt,hash,role,active,must_change) VALUES(?,?,?,?,1,?)').run(username, salt, hash, role, mustChange ? 1 : 0);
 }
-(async () => {
-  if (!Q('SELECT COUNT(*) c FROM users').get().c) {
-    const pw = process.env.ADMIN_PASSWORD || crypto.randomBytes(6).toString('base64url');
-    await addUser('admin', pw, 'admin', true);
-    console.log('\n==============================================================\n  تم إنشاء حساب المدير لأول مرة:\n  اسم المستخدم: admin\n  كلمة المرور المؤقتة: ' + pw + '\n  (سيُطلب منك تغييرها عند أول دخول — سجّلها الآن فلن تظهر مرة أخرى)\n==============================================================\n');
+/* ---------------- الحفظ الخارجي المشفّر (متوافق مع S3: Cloudflare R2 / AWS S3 / Backblaze B2 / Wasabi ...) ----------------
+   يحمي البيانات من ضياع القرص المؤقت (مثل الخطة المجانية في Render): تُرفع لقطة مشفّرة بعد كل تغيير، وتُستعاد تلقائياً عند التشغيل على قرص فارغ. */
+const S3 = { endpoint: (process.env.S3_ENDPOINT || '').replace(/\/+$/, ''), bucket: process.env.S3_BUCKET || '', ak: process.env.S3_ACCESS_KEY || '', sk: process.env.S3_SECRET_KEY || '', region: process.env.S3_REGION || 'auto', prefix: (process.env.S3_PREFIX || 'invoice-system/').replace(/^\/+/, '') };
+const SYNC_KEY = process.env.SYNC_KEY || '';
+const syncOn = () => !!(S3.endpoint && S3.bucket && S3.ak && S3.sk && SYNC_KEY);
+const SYNC_DEBOUNCE = +process.env.SYNC_DEBOUNCE_MS || 20000;
+const sha256hex = b => crypto.createHash('sha256').update(b).digest('hex'), hmac = (k, d) => crypto.createHmac('sha256', k).update(d).digest();
+function awsSign(o) {
+  const date = o.amzDate.slice(0, 8), h = { ...o.headers, host: o.host, 'x-amz-date': o.amzDate };
+  const names = Object.keys(h).map(x => x.toLowerCase()).sort(), low = Object.fromEntries(Object.entries(h).map(([k, v]) => [k.toLowerCase(), v]));
+  const canonHeaders = names.map(n => n + ':' + String(low[n]).trim().replace(/\s+/g, ' ') + '\n').join(''), signedHeaders = names.join(';');
+  const canonReq = [o.method, o.path, o.query || '', canonHeaders, signedHeaders, o.payloadHash].join('\n');
+  const scope = `${date}/${o.region}/${o.service}/aws4_request`, sts = ['AWS4-HMAC-SHA256', o.amzDate, scope, sha256hex(canonReq)].join('\n');
+  const kSign = hmac(hmac(hmac(hmac('AWS4' + o.secretKey, date), o.region), o.service), 'aws4_request'), signature = hmac(kSign, sts).toString('hex');
+  return { authorization: `AWS4-HMAC-SHA256 Credential=${o.accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`, signature };
+}
+async function s3Req(method, key, body) {
+  const u = new URL(S3.endpoint), path = '/' + S3.bucket + '/' + key.split('/').map(encodeURIComponent).join('/'), amz = new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''), ph = sha256hex(body || '');
+  const sg = awsSign({ method, host: u.host, path, query: '', headers: { 'x-amz-content-sha256': ph }, payloadHash: ph, accessKey: S3.ak, secretKey: S3.sk, region: S3.region, service: 's3', amzDate: amz });
+  const r = await fetch(u.origin + path, { method, headers: { 'x-amz-content-sha256': ph, 'x-amz-date': amz, Authorization: sg.authorization }, body: body || undefined, signal: AbortSignal.timeout(60000) });
+  if (r.status === 404 && method === 'GET') return null;
+  if (!r.ok) throw new Error(`S3 ${method} ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  return method === 'GET' ? Buffer.from(await r.arrayBuffer()) : true;
+}
+const MAGIC = Buffer.from('INV1');
+function encBuf(plain) { const salt = crypto.randomBytes(16), iv = crypto.randomBytes(12), key = crypto.scryptSync(SYNC_KEY, salt, 32), c = crypto.createCipheriv('aes-256-gcm', key, iv), ct = Buffer.concat([c.update(plain), c.final()]); return Buffer.concat([MAGIC, salt, iv, c.getAuthTag(), ct]); }
+function decBuf(buf) { if (buf.subarray(0, 4).compare(MAGIC) !== 0) throw new Error('صيغة ملف التخزين الخارجي غير معروفة'); const salt = buf.subarray(4, 20), iv = buf.subarray(20, 32), tag = buf.subarray(32, 48), ct = buf.subarray(48), key = crypto.scryptSync(SYNC_KEY, salt, 32), d = crypto.createDecipheriv('aes-256-gcm', key, iv); d.setAuthTag(tag); try { return Buffer.concat([d.update(ct), d.final()]); } catch (_) { throw new Error('تعذّر فك التشفير: SYNC_KEY غير صحيح أو الملف تالف'); } }
+function syncState() { return { app: 'invoice-sync', v: 1, at: new Date().toISOString(), users: Q('SELECT username,salt,hash,role,active,pm,must_change FROM users').all(), invs: [...INV.values()], kv: Object.fromEntries(Q('SELECT k,v FROM kv').all().map(r => [r.k, JSON.parse(r.v)])) }; }
+function applySyncState(d) {
+  if (!d || d.app !== 'invoice-sync' || !Array.isArray(d.users) || !Array.isArray(d.invs)) throw new Error('محتوى التخزين الخارجي غير صالح');
+  tx(() => { Q('DELETE FROM sessions').run(); Q('DELETE FROM users').run(); Q('DELETE FROM invoices').run(); Q('DELETE FROM kv').run(); INV.clear();
+    for (const u of d.users) Q('INSERT INTO users(username,salt,hash,role,active,pm,must_change) VALUES(?,?,?,?,?,?,?)').run(u.username, u.salt, u.hash, u.role, u.active ? 1 : 0, u.pm || null, u.must_change ? 1 : 0);
+    for (const o of d.invs) { INV.set(o.Invoice_ID, o); putInv(o); } for (const [k, v] of Object.entries(d.kv || {})) kvSet(k, v); });
+}
+let syncDirty = false, syncTimer = null, syncBusy = false; const syncStat = { lastOk: null, lastErr: null, lastErrAt: null, uploads: 0 };
+function markDirty() { if (!syncOn()) return; syncDirty = true; if (!syncTimer) { syncTimer = setTimeout(() => { syncTimer = null; doSync().catch(() => {}); }, SYNC_DEBOUNCE); if (syncTimer.unref) syncTimer.unref(); } }
+async function doSync(force) {
+  if (!syncOn() || syncBusy || (!syncDirty && !force)) return; syncBusy = true; syncDirty = false;
+  try { await s3Req('PUT', S3.prefix + 'state.enc', encBuf(zlib.gzipSync(Buffer.from(JSON.stringify(syncState()))))); syncStat.lastOk = Date.now(); syncStat.lastErr = null; syncStat.uploads++; }
+  catch (e) { syncDirty = true; syncStat.lastErr = String(e.message || e); syncStat.lastErrAt = Date.now(); console.error('خطأ في الحفظ الخارجي:', syncStat.lastErr); }
+  finally { syncBusy = false; }
+}
+const startInfo = { startedAt: Date.now(), origin: 'existing' };
+async function bootstrap() {
+  if (Q('SELECT COUNT(*) c FROM users').get().c) return;
+  if (syncOn()) {
+    const buf = await s3Req('GET', S3.prefix + 'state.enc'); /* أي خطأ شبكي/مصادقة يوقف الإقلاع حتى لا نكتب فوق البيانات الخارجية بحالة فارغة */
+    if (buf) { applySyncState(JSON.parse(zlib.gunzipSync(decBuf(buf)).toString())); startInfo.origin = 'restored'; console.log(`تمت استعادة البيانات من التخزين الخارجي (${INV.size} فاتورة)`); return; }
   }
-})();
+  const pw = process.env.ADMIN_PASSWORD || crypto.randomBytes(6).toString('base64url');
+  await addUser('admin', pw, 'admin', true); startInfo.origin = 'fresh'; markDirty();
+  console.log('\n==============================================================\n  تم إنشاء حساب المدير لأول مرة:\n  اسم المستخدم: admin\n  كلمة المرور المؤقتة: ' + pw + '\n  (سيُطلب منك تغييرها عند أول دخول — سجّلها الآن فلن تظهر مرة أخرى)\n==============================================================\n');
+}
+function storageWarn() { return !!process.env.RENDER && !process.env.PERSISTENT_STORAGE && !syncOn(); }
+function keepAlive() { const url = process.env.KEEP_ALIVE_URL || (process.env.KEEP_ALIVE === '1' ? process.env.RENDER_EXTERNAL_URL : ''); if (!url) return; const t = setInterval(() => { fetch(url.replace(/\/+$/, '') + '/healthz', { signal: AbortSignal.timeout(20000) }).catch(() => {}); }, 10 * 60 * 1000); t.unref(); console.log('keep-alive: ping كل 10 دقائق →', url); }
 const parseCookie = req => Object.fromEntries((req.headers.cookie || '').split(';').map(s => s.trim().split('=')).filter(a => a[0]).map(a => [a[0], decodeURIComponent(a.slice(1).join('='))]));
 function sessionOf(req) {
   const t = parseCookie(req).sid; if (!t) return null;
@@ -115,7 +163,10 @@ function dropClients(pred) { for (const c of [...clients]) if (pred(c)) { try { 
 
 /* ---------------- النسخ الاحتياطي ---------------- */
 const bkSettings = () => ({ autoFile: true, hours: 24, fileHours: 24, keep: 30, keepFiles: 30, lastSnap: null, lastFile: null, ...kvGet('bkset', {}) });
-function snapshot() { return { app: 'invoice-server', v: 3, at: new Date().toISOString(), users: Q('SELECT username,salt,hash,role,active,pm,must_change FROM users').all(), invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), PM: kvGet('PM', PM_DEFAULT) }; }
+const secretKey = () => { let k = kvGet('secret', null); if (!k) { k = crypto.randomBytes(32).toString('hex'); kvSet('secret', k); } return k; };
+const bodyHash = d => sha256hex(JSON.stringify({ invs: d.invs, WH: d.WH, DR: d.DR, PM: d.PM, CFG: d.CFG }));
+const signB = d => hmac(secretKey(), d.at + '|' + bodyHash(d)).toString('hex');
+function snapshot() { const d = { app: 'invoice-server', v: 4, at: new Date().toISOString(), users: Q('SELECT username,salt,hash,role,active,pm,must_change FROM users').all(), invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), PM: kvGet('PM', PM_DEFAULT), CFG: kvGet('CFG', {}) }; d.sig = signB(d); return d; }
 function saveBackup(label, by) {
   const d = snapshot(); const blob = zlib.gzipSync(Buffer.from(JSON.stringify(d)));
   Q('INSERT OR REPLACE INTO backups(at,label,by,n,u,blob) VALUES(?,?,?,?,?,?)').run(d.at, label, by, d.invs.length, d.users.length, blob);
@@ -132,16 +183,17 @@ function restoreCheck(actor, at) {
   const h = lastRestore(); if (h && !(Date.parse(at) > Date.parse(h.from)))
     throw new HttpError(403, 'لا يمكن استعادة نسخة ليست أحدث من آخر نسخة تمت استعادتها. الاستعادة لتاريخ سابق من صلاحيات المدير فقط.');
 }
-function restore(d, actor, label, src) {
+function restore(d, actor, label, src, trusted) {
   if (!d || d.app !== 'invoice-server' || !Array.isArray(d.invs) || !Array.isArray(d.users)) throw bad('ملف نسخة احتياطية غير صالح (يجب أن يكون من نسخ هذا السيرفر)');
   restoreCheck(actor, d.at);
+  if (actor.role !== 'admin' && !trusted && !(d.sig && safeEq(String(d.sig), signB(d)))) throw bad('ملف النسخة غير موثّق (عُدّل أو لم يُنشأ من هذا الخادم)، لذلك لا يمكن الاعتماد على تاريخ إنشائه');
   const full = actor.role === 'admin';
   if (full && !d.users.some(u => u.role === 'admin' && u.active)) throw bad('النسخة لا تحتوي مديراً نشطاً، لن تتم الاستعادة');
   saveBackup('قبل الاستعادة (' + label + ')', actor.u);
   tx(() => {
     Q('DELETE FROM invoices').run(); INV.clear();
     for (const raw of d.invs) { const id = String(raw.Invoice_ID || '').trim(); if (!id) continue; const o = { ...newInv(id, raw) }; for (const k of ['Status', 'Paid_Status', 'Pay_Method', 'PO_Number', 'Return_Number', 'Notes', 'First_Editor', 'User_Name']) if (raw[k] != null) o[k] = String(raw[k]); for (const k of ['First_At', 'ts', 'Received_At']) o[k] = +raw[k] || 0; if (!ST.includes(o.Status)) o.Status = 'Not Received'; if (!PAY.includes(o.Paid_Status)) o.Paid_Status = 'Unpaid'; o.PO_Number = cz(o.PO_Number); o.Return_Number = cz(o.Return_Number); INV.set(id, o); putInv(o); }
-    kvSet('WH', Array.isArray(d.WH) ? d.WH : []); kvSet('DR', Array.isArray(d.DR) ? d.DR : []); if (Array.isArray(d.PM)) kvSet('PM', d.PM);
+    kvSet('WH', Array.isArray(d.WH) ? d.WH : []); kvSet('DR', Array.isArray(d.DR) ? d.DR : []); if (Array.isArray(d.PM)) kvSet('PM', d.PM); if (d.CFG && typeof d.CFG === 'object') kvSet('CFG', d.CFG);
     if (full) {
       const ses = Q('SELECT s.token,u.username,s.created,s.last FROM sessions s JOIN users u ON u.id=s.user_id').all();
       Q('DELETE FROM sessions').run(); Q('DELETE FROM users').run();
@@ -156,17 +208,17 @@ function restore(d, actor, label, src) {
 function bkTick() {
   try {
     const s = bkSettings(), now = Date.now();
-    if (!s.lastSnap || now - Date.parse(s.lastSnap) >= s.hours * 36e5) { saveBackup('تلقائية (كل ' + s.hours + ' ساعة)', 'النظام (تلقائي)'); s.lastSnap = new Date().toISOString(); kvSet('bkset', { ...kvGet('bkset', {}), ...s }); }
+    if (!s.lastSnap || now - Date.parse(s.lastSnap) >= s.hours * 36e5) { saveBackup('تلقائية (كل ' + s.hours + ' ساعة)', 'النظام (تلقائي)'); s.lastSnap = new Date().toISOString(); kvSet('bkset', { ...kvGet('bkset', {}), ...s }); markDirty(); }
     if (s.autoFile !== false && (!s.lastFile || now - Date.parse(s.lastFile) >= s.fileHours * 36e5)) {
       const t = new Date(), q = n => String(n).padStart(2, '0'), f = path.join(DATA_DIR, 'backups', `backup_${t.getFullYear()}-${q(t.getMonth() + 1)}-${q(t.getDate())}_${q(t.getHours())}${q(t.getMinutes())}.json.gz`);
-      fs.writeFileSync(f, zlib.gzipSync(Buffer.from(JSON.stringify(snapshot()))));
+      const gz = zlib.gzipSync(Buffer.from(JSON.stringify(snapshot()))); fs.writeFileSync(f, gz);
+      if (syncOn()) s3Req('PUT', S3.prefix + 'backups/' + path.basename(f).replace('.json.gz', '.enc'), encBuf(gz)).catch(e => console.error('رفع النسخة الاحتياطية للتخزين الخارجي فشل:', e.message));
       const files = fs.readdirSync(path.join(DATA_DIR, 'backups')).filter(x => x.endsWith('.json.gz')).sort();
       for (const x of files.slice(0, Math.max(0, files.length - s.keepFiles))) fs.unlinkSync(path.join(DATA_DIR, 'backups', x));
-      kvSet('bkset', { ...kvGet('bkset', {}), lastFile: t.toISOString() });
+      kvSet('bkset', { ...kvGet('bkset', {}), lastFile: t.toISOString() }); markDirty();
     }
   } catch (e) { console.error('backup error', e); }
 }
-if (require.main === module) { setTimeout(bkTick, 2000).unref(); setInterval(bkTick, 60000).unref(); }
 
 /* ---------------- HTTP ---------------- */
 const send = async (req, res, status, obj, extraHeaders = {}) => {
@@ -204,8 +256,8 @@ route('POST', /^\/api\/password$/, async (req, res, ctx, b) => {
 });
 route('GET', /^\/api\/state$/, async (req, res, ctx) => {
   const me = pub(Q('SELECT * FROM users WHERE id=?').get(ctx.id)); if (me.mustChange) throw new HttpError(403, 'يجب تغيير كلمة المرور أولاً');
-  const o = { me, invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), PM: kvGet('PM', PM_DEFAULT), now: Date.now() };
-  if (ctx.role === 'admin') o.users = Q('SELECT * FROM users ORDER BY username').all().map(pub);
+  const o = { me, invs: [...INV.values()], WH: kvGet('WH', []), DR: kvGet('DR', []), PM: kvGet('PM', PM_DEFAULT), CFG: kvGet('CFG', {}), now: Date.now() };
+  if (ctx.role === 'admin') { o.users = Q('SELECT * FROM users ORDER BY username').all().map(pub); o.storageWarn = storageWarn(); }
   return [200, o];
 });
 route('GET', /^\/api\/events$/, async (req, res, ctx) => {
@@ -230,6 +282,23 @@ route('POST', /^\/api\/undo$/, async (req, res, ctx) => {
   if (!restored.length) throw new HttpError(409, 'لا يمكن التراجع: الفواتير عُدّلت بعد ذلك من مستخدم آخر');
   broadcast('invs', { items: restored, src: req.headers['x-client'] || '' }); return [200, { updated: restored }];
 });
+route('PUT', /^\/api\/settings$/, async (req, res, ctx, b) => {
+  adminOnly(ctx); const c = b.CFG && typeof b.CFG === 'object' ? b.CFG : {}, clean = {};
+  if (c.terms && typeof c.terms === 'object') { clean.terms = {}; for (const [k, v] of Object.entries(c.terms)) if (/^\w{1,40}$/.test(k) && typeof v === 'string' && v.trim()) clean.terms[k] = v.trim().slice(0, 120); }
+  if (c.sound && typeof c.sound === 'object') clean.sound = { ok: String(c.sound.ok || 'p1').slice(0, 8), err: String(c.sound.err || 'p1').slice(0, 8), vol: Math.min(0.5, Math.max(0.05, +c.sound.vol || 0.18)) };
+  if (c.layout && typeof c.layout === 'object') { clean.layout = {}; for (const n of ['dash', 'facts', 'drv']) if (Array.isArray(c.layout[n])) clean.layout[n] = c.layout[n].slice(0, 40).map(x => ({ k: String((x && x.k) || '').slice(0, 40), on: !!(x && x.on) })); }
+  kvSet('CFG', clean); broadcast('settings', { CFG: clean, src: req.headers['x-client'] || '' }); return [200, { ok: true }];
+});
+route('POST', /^\/api\/maintenance\/clear-received$/, async (req, res, ctx) => {
+  adminOnly(ctx); saveBackup('قبل مسح تواريخ الاستلام', ctx.u);
+  tx(() => { for (const [id, inv] of INV) if (inv.Received_At) { const c = { ...inv, Received_At: 0 }; INV.set(id, c); putInv(c); } });
+  broadcast('reload', { src: req.headers['x-client'] || '' }); return [200, { ok: true }];
+});
+route('GET', /^\/api\/sync-status$/, async (req, res, ctx) => {
+  adminOnly(ctx); return [200, { configured: syncOn(), endpoint: S3.endpoint.replace(/^https?:\/\//, ''), bucket: S3.bucket, lastOk: syncStat.lastOk, lastErr: syncStat.lastErr, lastErrAt: syncStat.lastErrAt, pending: syncDirty, uploads: syncStat.uploads, origin: startInfo.origin, startedAt: startInfo.startedAt,
+    onRender: !!process.env.RENDER, persistentDeclared: !!process.env.PERSISTENT_STORAGE, ephemeralWarning: storageWarn(), keepAlive: !!(process.env.KEEP_ALIVE_URL || process.env.KEEP_ALIVE === '1') }];
+});
+route('POST', /^\/api\/sync-now$/, async (req, res, ctx) => { adminOnly(ctx); if (!syncOn()) throw bad('الحفظ الخارجي غير مُفعّل'); await doSync(true); if (syncStat.lastErr) throw new HttpError(502, 'فشل الرفع: ' + syncStat.lastErr); return [200, { ok: true, lastOk: syncStat.lastOk }]; });
 route('PUT', /^\/api\/paymethods$/, async (req, res, ctx, b) => {
   adminOnly(ctx); const PM = [...new Set((Array.isArray(b.PM) ? b.PM : []).map(x => String(x || '').trim().slice(0, 40)).filter(Boolean))].slice(0, 30);
   kvSet('PM', PM); broadcast('paymethods', { PM, src: req.headers['x-client'] || '' }); return [200, { ok: true }];
@@ -246,9 +315,9 @@ route('POST', /^\/api\/master\/replace$/, async (req, res, ctx, b) => {
   tx(() => {
     for (const c of changes) { const inv = INV.get(String(c.id)); if (!inv) continue; const copy = { ...inv }, f = c.fields || {}; let did = false;
       for (const k of ERP_FIELDS) if (k !== 'Driver_Location' && k in f) { const v = sanitize(k, f[k]); if (copy[k] !== v) { copy[k] = v; did = true; } }
-      const ef = {}; for (const k of EDITABLE) if (k in f) ef[k] = f[k]; if (applyFields(copy, ef, now, ctx)) did = true;
+      const ef = {}; for (const k of EDITABLE) if (k in f) ef[k] = f[k]; if (applyFields(copy, ef, now, ctx, { keepReceived: true })) did = true;
       if (did) { if (copy.ts !== now) { copy.First_Editor = copy.First_Editor || ctx.u; copy.First_At = copy.First_At || now; copy.User_Name = ctx.u; copy.ts = now; } INV.set(copy.Invoice_ID, copy); putInv(copy); ch++; } }
-    for (const r of news) { const id = String(r.Invoice_ID == null ? '' : r.Invoice_ID).trim(); if (!id || INV.has(id)) continue; const o = newInv(id, r); const ef = {}; for (const k of EDITABLE) if (k in r) ef[k] = r[k]; applyFields(o, ef, now, { u: '' }); if (o.ts === now) { o.First_Editor = ''; o.User_Name = ''; o.ts = 0; o.First_At = 0; } INV.set(id, o); putInv(o); nw++; }
+    for (const r of news) { const id = String(r.Invoice_ID == null ? '' : r.Invoice_ID).trim(); if (!id || INV.has(id)) continue; const o = newInv(id, r); const ef = {}; for (const k of EDITABLE) if (k in r) ef[k] = r[k]; applyFields(o, ef, now, { u: '' }, { keepReceived: true }); if (o.ts === now) { o.First_Editor = ''; o.User_Name = ''; o.ts = 0; o.First_At = 0; } INV.set(id, o); putInv(o); nw++; }
     for (const id of remove) if (INV.delete(id)) { Q('DELETE FROM invoices WHERE id=?').run(id); rm++; }
   });
   broadcast('reload', { src: req.headers['x-client'] || '' }); return [200, { changed: ch, added: nw, removed: rm }];
@@ -294,7 +363,7 @@ route('GET', /^\/api\/backups$/, async (req, res, ctx) => {
 route('POST', /^\/api\/backups$/, async (req, res, ctx, b) => { need(ctx, 'backup'); const at = saveBackup('يدوية', ctx.u); kvSet('bkset', { ...kvGet('bkset', {}), lastSnap: at }); return [200, { at }]; });
 route('GET', /^\/api\/backups\/(.+)\/file$/, async (req, res, ctx, b, m) => { need(ctx, 'backup'); const d = loadBackup(decodeURIComponent(m[1])); if (ctx.role !== 'admin') d.users = []; return [200, d]; });
 route('GET', /^\/api\/backup-now$/, async (req, res, ctx) => { need(ctx, 'backup'); const d = snapshot(); if (ctx.role !== 'admin') d.users = []; return [200, d]; });
-route('POST', /^\/api\/backups\/(.+)\/restore$/, async (req, res, ctx, b, m) => { const at = decodeURIComponent(m[1]); restore(loadBackup(at), ctx, new Date(at).toISOString(), req.headers['x-client'] || ''); return [200, { ok: true }]; });
+route('POST', /^\/api\/backups\/(.+)\/restore$/, async (req, res, ctx, b, m) => { const at = decodeURIComponent(m[1]); restore(loadBackup(at), ctx, new Date(at).toISOString(), req.headers['x-client'] || '', true); return [200, { ok: true }]; });
 route('POST', /^\/api\/restore-file$/, async (req, res, ctx, b) => { restore(b.data, ctx, 'ملف', req.headers['x-client'] || ''); return [200, { ok: true }]; });
 route('PUT', /^\/api\/backup-settings$/, async (req, res, ctx, b) => {
   adminOnly(ctx); const s = {}; const pick = (k, vals) => { if (k in b) { const v = +b[k]; if (!vals.includes(v)) throw bad('قيمة غير مسموحة: ' + k); s[k] = v; } };
@@ -318,6 +387,7 @@ const server = http.createServer(async (req, res) => {
       const body = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await readBody(req) : {};
       const out = await r.fn(req, res, ctx, body, p.match(r.re));
       if (out === null) return; const [st, obj, hd] = out;
+      if (req.method !== 'GET' && !/\/(login|logout)$/.test(p)) markDirty();
       if (/\/file$/.test(p) || p.endsWith('/backup-now')) { const t = new Date(); hd && 0; return send(req, res, st, obj, { 'Content-Disposition': `attachment; filename="invoice_backup_${t.toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json"`, ...(hd || {}) }); }
       return send(req, res, st, obj, hd);
     }
@@ -335,7 +405,11 @@ const server = http.createServer(async (req, res) => {
 });
 server.requestTimeout = 0; server.keepAliveTimeout = 65000;
 if (require.main === module) {
-  server.listen(PORT, HOST, () => console.log(`خادم أذون الفواتير يعمل على http://localhost:${PORT}  (البيانات: ${DATA_DIR})`));
-  const stop = () => { try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (_) {} process.exit(0); }; process.on('SIGINT', stop); process.on('SIGTERM', stop);
+  bootstrap().then(() => {
+    server.listen(PORT, HOST, () => console.log(`خادم أذون الفواتير يعمل على http://localhost:${PORT}  (البيانات: ${DATA_DIR})${syncOn() ? '  — الحفظ الخارجي المشفّر: مُفعّل' : ''}`));
+    setTimeout(bkTick, 2000).unref(); setInterval(bkTick, 60000).unref(); keepAlive();
+    if (storageWarn()) console.warn('\n⚠ تحذير: السيرفر يعمل على Render بدون قرص دائم ولا حفظ خارجي — ستُفقد البيانات عند إعادة التشغيل. راجع README-AR.md.\n');
+  }).catch(e => { console.error('فشل الإقلاع:', e.message); process.exit(1); });
+  const stop = async () => { try { await Promise.race([doSync(), new Promise(r => setTimeout(r, 8000))]); } catch (_) {} try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (_) {} process.exit(0); }; process.on('SIGINT', stop); process.on('SIGTERM', stop);
 }
-module.exports = { server };
+module.exports = { server, awsSign, encBuf, decBuf };
